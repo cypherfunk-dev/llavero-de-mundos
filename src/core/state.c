@@ -2,10 +2,13 @@
 
 #include <string.h>
 
+#include <stdio.h>
+
+#include "garden.h"
 #include "timeutil.h"
 
 #define SAVE_MAGIC 0x31564C4Cu /* "LLV1" */
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2         /* v1 (fase 0) no tenía jardín ni mascota: se rechaza */
 
 /* Peso de cada objeto al recargar la bolsa (spec §3.1). */
 static const uint8_t ITEM_WEIGHT[ITEM_COUNT] = {
@@ -37,6 +40,7 @@ void state_init(GameState *gs, uint64_t seed, int64_t now)
     gs->bag[0] = ITEM_NUBE;
     gs->bag[1] = ITEM_SEMILLA;
     gs->bag_count = 2;
+    garden_init(gs);
 }
 
 void state_log(GameState *gs, EventKind kind, uint8_t a)
@@ -48,6 +52,89 @@ void state_log(GameState *gs, EventKind kind, uint8_t a)
     gs->diary_head = (uint8_t)((gs->diary_head + 1) % LLV_DIARY_SIZE);
     if (gs->diary_count < LLV_DIARY_SIZE)
         gs->diary_count++;
+    gs->diary_total++;
+}
+
+int state_bag_add(GameState *gs, ItemKind item)
+{
+    if (item <= ITEM_NONE || item >= ITEM_COUNT || gs->bag_count >= LLV_BAG_SIZE)
+        return 0;
+    gs->bag[gs->bag_count++] = (uint8_t)item;
+    return 1;
+}
+
+static const char *const COLL_NAME[COLL_COUNT] = {
+    [COLL_MANZANA] = "Manzana", [COLL_HONGO] = "Hongo", [COLL_FLOR] = "Flor",
+    [COLL_FLOR_RARA] = "Flor rara", [COLL_ABEJA] = "Abeja", [COLL_PAJARO] = "Pájaro",
+    [COLL_LOMBRIZ] = "Lombriz", [COLL_RANA] = "Rana", [COLL_ESTRELLA] = "Estrella fugaz",
+    [COLL_ARCOIRIS] = "Arcoíris",
+    [COLL_PEZ0] = "Pez", [COLL_PEZ1] = "Pez", [COLL_PEZ2] = "Pez", [COLL_PEZ3] = "Pez",
+    [COLL_PEZ4] = "Pez", [COLL_PEZ5] = "Pez",
+};
+
+const char *state_coll_name(CollSlot slot)
+{
+    return slot < COLL_COUNT ? COLL_NAME[slot] : "";
+}
+
+int state_collect(GameState *gs, CollSlot slot)
+{
+    if (slot >= COLL_COUNT || (gs->collection & (1u << slot)))
+        return 0;
+    gs->collection = (uint16_t)(gs->collection | (1u << slot));
+    state_log(gs, EV_DISCOVER, (uint8_t)slot);
+    return 1;
+}
+
+static const char *const PET_SHORT[PET_COUNT] = {"", "Hongo", "Semilla", "Piedra", "Compostera"};
+
+/* Textos del diario: caben en ~14 letras para dejar sitio a "hace 3 h". */
+int state_event_text(char *buf, size_t n, const DiaryEntry *d)
+{
+    const char *txt = NULL;
+    switch ((EventKind)d->kind) {
+    case EV_BAG_REFILL: snprintf(buf, n, "+1 %s", state_item_name(d->a)); return 1;
+    case EV_BAG_FULL_LOST: snprintf(buf, n, "%s: no cupo", state_item_name(d->a)); return 1;
+    case EV_NEW_DAY: txt = "Nuevo día"; break;
+    case EV_WAKE:
+        if (d->a == 0)
+            return 0; /* siestas de minutos: ruido */
+        snprintf(buf, n, "Dormí %uh", (unsigned)d->a);
+        return 1;
+    case EV_ITEM_USED: snprintf(buf, n, "Usaste %s", state_item_name(d->a)); return 1;
+    case EV_APPLE_FALL: txt = "Cae manzana"; break;
+    case EV_APPLE_ROT: txt = "Fruta podrida"; break;
+    case EV_SPROUT: txt = "Nace un brote"; break;
+    case EV_TREE_ADULT: txt = "Crece un árbol"; break;
+    case EV_MUSHROOM: txt = "Sale un hongo"; break;
+    case EV_BLOOM: txt = "Flor rara"; break;
+    case EV_BIRD: txt = "Llega pájaro"; break;
+    case EV_BIRD_SEED: txt = "Deja semilla"; break;
+    case EV_BEE: txt = "Pasa una abeja"; break;
+    case EV_WORM: txt = "Sale lombriz"; break;
+    case EV_FROG: txt = "Llega una rana"; break;
+    case EV_RAIN: txt = d->a ? "Nube: llueve" : "Llueve"; break;
+    case EV_WIND: txt = "Viento"; break;
+    case EV_SNOW: txt = "Nieva"; break;
+    case EV_RAINBOW: txt = "Arcoíris"; break;
+    case EV_STAR: txt = "Estrella fugaz"; break;
+    case EV_COMPOST: txt = "Abono"; break;
+    case EV_DISCOVER: snprintf(buf, n, "Nuevo: %s", state_coll_name((CollSlot)d->a)); return 1;
+    case EV_PET_CHOSEN:
+        snprintf(buf, n, "Llega %s", d->a < PET_COUNT ? PET_SHORT[d->a] : "");
+        return 1;
+    case EV_PET_STAGE: txt = "Mascota crece"; break;
+    case EV_PET_GEN: snprintf(buf, n, "Nace Gen %u", (unsigned)d->a); return 1;
+    case EV_PET_CARE: txt = "Cuidas mascota"; break;
+    case EV_PET_WORD: txt = "Dice algo…"; break;
+    case EV_PET_SPORES: txt = "Esporas"; break;
+    case EV_PET_COMPOST: txt = "Compostera come"; break;
+    case EV_NONE:
+    case EV_KIND_COUNT:
+    default: return 0;
+    }
+    snprintf(buf, n, "%s", txt);
+    return 1;
 }
 
 const DiaryEntry *state_diary_get(const GameState *gs, int i)
@@ -168,7 +255,20 @@ static uint64_t r_bytes(Reader *r, int n)
     return v;
 }
 
-/* Un único listado de campos para escribir y leer: imposible que se desincronicen. */
+/* Un único listado de campos para escribir y leer: imposible que se desincronicen.
+ * X(campo, bytes) para escalares; EACH recorre un array de estructuras con su propio listado. */
+#define EACH(arr, count, FIELDS, X)                        \
+    for (int i_ = 0; i_ < (count); i_++) {                 \
+        FIELDS(X, &(arr)[i_])                              \
+    }
+#define BYTES(arr, count, X) EACH(arr, count, BYTE_FIELD, X)
+#define BYTE_FIELD(X, p) X(*(p), 1)
+#define ENT_FIELDS(X, e) X((e)->sp, 1) X((e)->st, 1) X((e)->cell, 1) X((e)->left, 2)
+#define DIARY_FIELDS(X, e) X((e)->tick, 8) X((e)->kind, 1) X((e)->a, 1)
+#define PET_FIELDS(X, p)                                   \
+    X((p)->kind, 1) X((p)->gen, 1) X((p)->age, 2) X((p)->happy, 1) X((p)->thought, 1) \
+    X((p)->word_left, 2) X((p)->task_left, 2) X((p)->stage_seen, 1)
+
 #define SAVE_FIELDS(X, s)                                  \
     X((s)->seed, 8)                                        \
     X((s)->rng.state, 8)                                   \
@@ -177,14 +277,25 @@ static uint64_t r_bytes(Reader *r, int n)
     X((s)->day_key, 8)                                     \
     X((s)->last_seen, 8)                                   \
     X((s)->bag_count, 1)                                   \
+    BYTES((s)->bag, LLV_BAG_SIZE, X)                       \
     X((s)->prepared, 1)                                    \
     X((s)->refill_left, 2)                                 \
+    BYTES((s)->actions_used, LLV_WORLD_COUNT, X)           \
     X((s)->current_world, 1)                               \
     X((s)->reloj_style, 1)                                 \
     X((s)->looks_today, 4)                                 \
     X((s)->looks_total, 4)                                 \
+    EACH((s)->ents, LLV_GARDEN_MAX, ENT_FIELDS, X)         \
+    X((s)->weather, 1)                                     \
+    X((s)->sky, 1)                                         \
+    X((s)->weather_left, 2)                                \
+    X((s)->sky_left, 1)                                    \
+    X((s)->collection, 2)                                  \
+    PET_FIELDS(X, &(s)->pet)                               \
+    EACH((s)->diary, LLV_DIARY_SIZE, DIARY_FIELDS, X)      \
     X((s)->diary_head, 1)                                  \
-    X((s)->diary_count, 1)
+    X((s)->diary_count, 1)                                 \
+    X((s)->diary_total, 4)
 
 size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
 {
@@ -195,15 +306,6 @@ size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
 #define WRITE_FIELD(f, n) w_bytes(&w, (uint64_t)(f), n);
     SAVE_FIELDS(WRITE_FIELD, gs)
 #undef WRITE_FIELD
-    for (int i = 0; i < LLV_BAG_SIZE; i++)
-        w_bytes(&w, gs->bag[i], 1);
-    for (int i = 0; i < LLV_WORLD_COUNT; i++)
-        w_bytes(&w, gs->actions_used[i], 1);
-    for (int i = 0; i < LLV_DIARY_SIZE; i++) {
-        w_bytes(&w, (uint64_t)gs->diary[i].tick, 8);
-        w_bytes(&w, gs->diary[i].kind, 1);
-        w_bytes(&w, gs->diary[i].a, 1);
-    }
     if (w.err)
         return 0;
     size_t payload = w.len - 8;
@@ -211,6 +313,32 @@ size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
     buf[7] = (uint8_t)(payload >> 8);
     w_bytes(&w, state_crc32(buf, w.len), 4);
     return w.err ? 0 : w.len;
+}
+
+/* Comprueba las invariantes: un guardado con CRC bueno pero valores absurdos no entra. */
+static int state_valid(const GameState *t)
+{
+    if (t->bag_count > LLV_BAG_SIZE || t->diary_count > LLV_DIARY_SIZE ||
+        t->diary_head >= LLV_DIARY_SIZE || t->current_world >= LLV_WORLD_COUNT ||
+        t->refill_left == 0 || t->refill_left > LLV_BAG_REFILL_TICKS ||
+        t->prepared >= ITEM_COUNT || t->weather > W_SNOW || t->sky > SKY_RAINBOW ||
+        t->pet.kind >= PET_COUNT || t->pet.age >= LLV_PET_CYCLE_TICKS ||
+        (t->pet.kind != PET_NONE && t->pet.gen == 0))
+        return 0;
+    for (int i = 0; i < LLV_BAG_SIZE; i++)
+        if (t->bag[i] >= ITEM_COUNT || (i < t->bag_count) != (t->bag[i] != ITEM_NONE))
+            return 0;
+    uint64_t used = 0;
+    for (int i = 0; i < LLV_GARDEN_MAX; i++) {
+        const Entity *e = &t->ents[i];
+        if (e->sp == SP_NONE)
+            continue;
+        if (e->sp >= SP_COUNT || e->st >= GARDEN_STAGES || e->cell >= LLV_GARDEN_CELLS ||
+            (used >> e->cell & 1))
+            return 0;
+        used |= 1ull << e->cell;
+    }
+    return 1;
 }
 
 int state_deserialize(GameState *gs, const uint8_t *buf, size_t len)
@@ -233,20 +361,9 @@ int state_deserialize(GameState *gs, const uint8_t *buf, size_t len)
 #define READ_FIELD(f, n) f = r_bytes(&r, n); /* conversión implícita: sin extensiones GNU */
     SAVE_FIELDS(READ_FIELD, &tmp)
 #undef READ_FIELD
-    for (int i = 0; i < LLV_BAG_SIZE; i++)
-        tmp.bag[i] = (uint8_t)r_bytes(&r, 1);
-    for (int i = 0; i < LLV_WORLD_COUNT; i++)
-        tmp.actions_used[i] = (uint8_t)r_bytes(&r, 1);
-    for (int i = 0; i < LLV_DIARY_SIZE; i++) {
-        tmp.diary[i].tick = (int64_t)r_bytes(&r, 8);
-        tmp.diary[i].kind = (uint8_t)r_bytes(&r, 1);
-        tmp.diary[i].a = (uint8_t)r_bytes(&r, 1);
-    }
     if (r.err || r.pos != r.len)
         return 5;
-    if (tmp.bag_count > LLV_BAG_SIZE || tmp.diary_count > LLV_DIARY_SIZE ||
-        tmp.diary_head >= LLV_DIARY_SIZE || tmp.current_world >= LLV_WORLD_COUNT ||
-        tmp.refill_left == 0 || tmp.refill_left > LLV_BAG_REFILL_TICKS)
+    if (!state_valid(&tmp))
         return 6;
     *gs = tmp;
     return 0;

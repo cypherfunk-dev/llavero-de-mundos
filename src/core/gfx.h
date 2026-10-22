@@ -20,6 +20,8 @@ typedef enum {
     C_BLUE_TXT, C_RED, C_CYAN, C_MAGENTA, C_VIOLET, C_VIOLET_D,
     C_ITEM_NUBE, C_ITEM_SEMILLA, C_ITEM_LOMBRIZ, C_ITEM_ALPISTE,
     C_LED_OFF,
+    /* Fase 2 (siempre al final: los índices anteriores no cambian). */
+    C_GRASS_A, C_GRASS_A_D, C_APPLE_ROT, C_WOOD_L, C_BIRD, C_BIRD_L, C_STONE, C_STONE_L,
     C_COUNT
 } Color;
 
@@ -45,6 +47,10 @@ typedef struct {
     const char *const *rows;
 } Sprite;
 void gfx_sprite(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[3], int scale);
+/* Igual, pero espejado en horizontal. */
+void gfx_sprite_flip(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[3]);
+/* Vecino más cercano a un tamaño dw x dh (para "inflar" y "desinflar"). */
+void gfx_sprite_stretch(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[3], int dw, int dh);
 
 /* Caja de texto estilo Pokémon (doble borde). */
 void gfx_textbox(Framebuffer *fb, int x, int y, int w, int h);

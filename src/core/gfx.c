@@ -27,6 +27,9 @@ const uint32_t gfx_palette[C_COUNT] = {
     [C_ITEM_NUBE] = 0xA8D8F8, [C_ITEM_SEMILLA] = 0x78D050,
     [C_ITEM_LOMBRIZ] = 0xF088A8, [C_ITEM_ALPISTE] = 0xD8B878,
     [C_LED_OFF] = 0x3A3446,
+    [C_GRASS_A] = 0x98A840, [C_GRASS_A_D] = 0x788830, [C_APPLE_ROT] = 0x6C4830,
+    [C_WOOD_L] = 0xD8A060, [C_BIRD] = 0x4868D0, [C_BIRD_L] = 0x98B8F0,
+    [C_STONE] = 0x8890A0, [C_STONE_L] = 0xB8C0CC,
 };
 
 void gfx_clear(Framebuffer *fb, Color c)
@@ -99,6 +102,26 @@ void gfx_sprite(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[
             char ch = s->rows[j][i];
             if (ch >= '1' && ch <= '3')
                 gfx_rect(fb, x + i * scale, y + j * scale, scale, scale, pal[ch - '1']);
+        }
+}
+
+void gfx_sprite_flip(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[3])
+{
+    for (int j = 0; j < s->h; j++)
+        for (int i = 0; i < s->w; i++) {
+            char ch = s->rows[j][s->w - 1 - i];
+            if (ch >= '1' && ch <= '3')
+                gfx_pset(fb, x + i, y + j, pal[ch - '1']);
+        }
+}
+
+void gfx_sprite_stretch(Framebuffer *fb, int x, int y, const Sprite *s, const Color pal[3], int dw, int dh)
+{
+    for (int j = 0; j < dh; j++)
+        for (int i = 0; i < dw; i++) {
+            char ch = s->rows[j * s->h / dh][i * s->w / dw];
+            if (ch >= '1' && ch <= '3')
+                gfx_pset(fb, x + i, y + j, pal[ch - '1']);
         }
 }
 

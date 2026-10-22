@@ -14,7 +14,17 @@ typedef struct {
     int64_t now;   /* segundos locales */
     uint32_t ms;   /* reloj monótono en ms, para animaciones */
     uint8_t index; /* posición del mundo en el ciclo de B */
+    uint8_t buttons; /* botones pulsados ahora (BTN_A | BTN_B), p. ej. para respirar */
+    /* Mensaje breve sobre la escena (lo dibuja el motor). Puede ser NULL (tests). */
+    void (*toast)(void *user, const char *text, uint32_t ms, uint32_t duration);
+    void *user;
 } WorldCtx;
+
+static inline void world_toast(const WorldCtx *ctx, const char *text, uint32_t duration)
+{
+    if (ctx->toast)
+        ctx->toast(ctx->user, text, ctx->ms, duration);
+}
 
 typedef struct {
     const char *name;
