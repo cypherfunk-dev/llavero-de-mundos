@@ -10,7 +10,7 @@ SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
 SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
 SHOTS ?= capturas
 
-.PHONY: all test sim headless shots clean
+.PHONY: all test sim headless shots shots-reloj shots-jardin clean
 all: test headless sim
 
 $(B):
@@ -31,8 +31,14 @@ test: $(B)/llv_tests
 headless: $(B)/llv_headless
 sim: $(B)/llv_sim
 
+# Capturas del Reloj y del Jardín/Cobertizo (la semana simulada de la fase 2).
+shots: shots-reloj shots-jardin
+
+shots-jardin: $(B)/llv_headless
+	tools/shots_jardin.sh $(B)/llv_headless $(SHOTS)
+
 # El Reloj en sus 5 estilos a varias horas: una hoja de contacto por momento.
-shots: $(B)/llv_headless
+shots-reloj: $(B)/llv_headless
 	mkdir -p $(SHOTS)
 	$(B)/llv_headless --date "2024-06-12 12:00" --out $(SHOTS) --scale 3 \
 	  style 0 shot dia_s0 style 1 shot dia_s1 style 2 shot dia_s2 style 3 shot dia_s3 \

@@ -219,11 +219,45 @@ static void look(Sim *s, int which)
     sample(s);
 }
 
+static const char *const EV_LABEL[EV_KIND_COUNT];
+
+/* Resumen de lo que pasó en el día (sin contar lo rutinario: despertares, bolsa, tus acciones). */
+static void day_summary(Sim *s, uint32_t *prev, char *out, size_t n)
+{
+    static const uint8_t MUNDANE[] = {EV_NONE, EV_BAG_REFILL, EV_BAG_FULL_LOST, EV_NEW_DAY, EV_WAKE,
+                                      EV_ITEM_USED, EV_PET_CARE, EV_DISCOVER};
+    uint32_t total = 0, delta[EV_KIND_COUNT];
+    for (int k = 0; k < EV_KIND_COUNT; k++) {
+        delta[k] = s->ev_hist[k] - prev[k];
+        prev[k] = s->ev_hist[k];
+        bool skip = false;
+        for (unsigned m = 0; m < sizeof(MUNDANE); m++)
+            skip |= MUNDANE[m] == k;
+        if (skip)
+            delta[k] = 0;
+        total += delta[k];
+    }
+    size_t len = (size_t)snprintf(out, n, "%u sucesos:", total);
+    for (int shown = 0; shown < 4; shown++) { /* los 4 más repetidos */
+        int best = -1;
+        for (int k = 1; k < EV_KIND_COUNT; k++)
+            if (delta[k] && (best < 0 || delta[k] > delta[best]))
+                best = k;
+        if (best < 0)
+            break;
+        if (len < n)
+            len += (size_t)snprintf(out + len, n - len, "%s%s %u", shown ? ", " : " ", EV_LABEL[best], delta[best]);
+        delta[best] = 0;
+    }
+}
+
 /* N días naturales empezando por hoy (las miradas que ya pasaron hoy se saltan). */
 static void routine(Sim *s, int days)
 {
     static const int LOOK_AT[4][2] = {{7, 30}, {12, 30}, {18, 30}, {22, 30}};
     int64_t midnight = time_floor_div(s->now, LLV_SECONDS_PER_DAY) * LLV_SECONDS_PER_DAY;
+    uint32_t prev[EV_KIND_COUNT];
+    memcpy(prev, s->ev_hist, sizeof(prev));
     for (int d = 0; d < days; d++) {
         for (int l = 0; l < 4; l++) {
             int64_t at = midnight + (int64_t)d * LLV_SECONDS_PER_DAY + LOOK_AT[l][0] * 3600 + LOOK_AT[l][1] * 60;
@@ -234,8 +268,10 @@ static void routine(Sim *s, int days)
         }
         const GameState *g = &s->e.gs;
         CivilTime c = time_to_civil(s->now);
-        printf("# %04d-%02d-%02d: %2d cosas, bolsa %d, mascota día %d, colección %d/16\n", c.year, c.month, c.day,
-               garden_count(g), g->bag_count, g->pet.kind ? pet_day(&g->pet) : 0, bits(g->collection));
+        char what[160];
+        day_summary(s, prev, what, sizeof(what));
+        printf("# %04d-%02d-%02d: %2d cosas, bolsa %d, colección %2d/16 | %s\n", c.year, c.month, c.day,
+               garden_count(g), g->bag_count, bits(g->collection), what);
     }
 }
 
@@ -337,14 +373,34 @@ static int write_img(const Sim *s, const char *name, const uint32_t *px, int w, 
     return rc;
 }
 
+static int do_grab(Sim *s, const char *name);
+
 static int do_shot(Sim *s, const char *name)
 {
     wake_if_needed(s);
     idle(s, 100);
+    return do_grab(s, name);
+}
+
+/* Captura sin esperar nada más (para ver el estado con un botón pulsado, un mensaje, etc.). */
+static int do_grab(Sim *s, const char *name)
+{
     if (s->grab_count < MAX_GRAB)
         s->grabbed[s->grab_count++] = s->e.fb;
     img_render(&s->e.fb, s->scale, s->lcd, pixbuf);
     return write_img(s, name, pixbuf, LLV_W * s->scale, LLV_H * s->scale);
+}
+
+/* Mantiene A pulsado 'ms' milisegundos, captura con el botón aún pulsado y lo suelta. */
+static int do_shot_held(Sim *s, const char *name, uint32_t ms)
+{
+    wake_if_needed(s);
+    for (uint32_t t = 0; t < ms; t += 20)
+        frame(s, 20, BTN_A, false);
+    int rc = do_grab(s, name);
+    frame(s, 20, 0, false);
+    idle(s, 100);
+    return rc;
 }
 
 /* Contactos: junta las capturas desde la última hoja en una cuadrícula. */
@@ -395,6 +451,7 @@ static void usage(const char *p)
            "  --lcd          rejilla LCD en las capturas\n"
            "Comandos (en orden):\n"
            "  shot NOMBRE    despierta si hace falta y captura NOMBRE.png\n"
+           "  shotheld NOMBRE MS  mantiene A pulsado MS ms y captura con el botón pulsado\n"
            "  sheet NOMBRE C hoja de contacto con las capturas previas en C columnas\n"
            "  adv DUR        pasa el tiempo (90s 30m 6h 2d 1w); se duerme solo\n"
            "  at FECHA       salta a esa fecha (hacia delante)\n"
@@ -402,6 +459,8 @@ static void usage(const char *p)
            "  world N        va al mundo 0-5 con B\n"
            "  tap a|b  hold a|b  ab  shake  sleep  wake  wait MS\n"
            "  pet N          elige mascota (1 hongo, 2 semilla, 3 piedra, 4 compostera)\n"
+           "  give N         (pruebas) mete el objeto N (1 nube 2 viento 3 semilla 4 alpiste 5 lombriz 6 deseo)\n"
+           "                 en la bolsa y lo deja preparado para la próxima acción del Jardín\n"
            "  routine DIAS   uso normal: 4 miradas al día (jardín, mascota, objetos) durante DIAS días\n"
            "  stats          estado del jardín, medias, eventos y objetos usados\n"
            "  info           imprime un resumen del estado\n",
@@ -482,6 +541,9 @@ int main(int argc, char **argv)
                 tap(&s, b);
             else
                 hold(&s, b);
+        } else if (!strcmp(c, "shotheld") && m2) {
+            rc = do_shot_held(&s, argv[i + 1], (uint32_t)atoi(argv[i + 2]));
+            i += 2;
         } else if (!strcmp(c, "ab")) {
             wake_if_needed(&s);
             ab(&s);
@@ -497,6 +559,14 @@ int main(int argc, char **argv)
             idle(&s, (uint32_t)atoi(argv[++i]));
         } else if (!strcmp(c, "pet") && m1) {
             choose_pet(&s, atoi(argv[++i]));
+        } else if (!strcmp(c, "give") && m1) {
+            /* Solo para preparar escenas de prueba: mete ese objeto en la bolsa y lo deja preparado. */
+            wake_if_needed(&s);
+            ItemKind it = (ItemKind)(atoi(argv[++i]) % ITEM_COUNT);
+            GameState *g = &s.e.gs;
+            if (it != ITEM_NONE && !state_bag_add(g, it))
+                g->bag[g->bag_count - 1] = (uint8_t)it;
+            g->prepared = (uint8_t)it;
         } else if (!strcmp(c, "routine") && m1) {
             routine(&s, atoi(argv[++i]));
         } else if (!strcmp(c, "stats")) {
