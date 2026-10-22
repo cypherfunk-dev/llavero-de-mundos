@@ -38,7 +38,7 @@ typedef struct {
     uint32_t collapse_until_ms;
     uint32_t diary_until_ms;
     uint32_t toast_until_ms;
-    char toast[32];
+    char toast[96];
     Rng fx; /* aleatoriedad solo visual: nunca entra en el estado guardado */
 } Engine;
 

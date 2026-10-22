@@ -36,9 +36,13 @@ const GardenRule GARDEN_RULES[SP_COUNT][GARDEN_STAGES] = {
     },
     /* árbol -> con fruta -> (viento o por su peso) suelta una manzana */
     [SP_ARBOL] = {
-        [0] = {"Árbol", "echa fruta", H(60), RF_WET | RF_SLOW_WINTER, {TO(100, SP_ARBOL, 1)}},
+        [0] = {"Árbol", "echa fruta", H(60), RF_WET | RF_SLOW_WINTER,
+               {TO(97, SP_ARBOL, 1), TO(3, SP_ARBOL, 2)}},
         [1] = {"Árbol con fruta", "suelta fruta", H(96), RF_WET | RF_SLOW_WINTER,
                {TO_SPAWN(100, SP_ARBOL, 0, SP_MANZANA, 0, 1, EV_APPLE_FALL)}},
+        /* de viejo se vuelve tocón: sale un hongo, un brote o se va (el jardín se renueva) */
+        [2] = {"Árbol viejo", "se vuelve tocón", H(72), RF_WET,
+               {TO_EV(55, SP_HONGO, 0, EV_MUSHROOM), TO_EV(30, SP_BROTE, 0, EV_SPROUT), GONE(15)}},
     },
     /* manzana fresca -2 d-> podrida -1 d-> brote 40 % | hongo 30 % | nada 30 % */
     [SP_MANZANA] = {

@@ -121,7 +121,7 @@ static void tenths(char *buf, size_t n, int t)
 int pet_ficha(const Pet *p, char lines[][24], int max)
 {
     int n = 0;
-    char h[16];
+    char h[32];
 #define LINE(...) do { if (n < max) snprintf(lines[n++], 24, __VA_ARGS__); } while (0)
     LINE("%s · Gen %u", pet_name((PetKind)p->kind), (unsigned)p->gen);
     LINE("Día %d", pet_day(p));

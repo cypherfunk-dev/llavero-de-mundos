@@ -128,7 +128,7 @@ int state_event_text(char *buf, size_t n, const DiaryEntry *d)
     case EV_PET_CARE: txt = "Cuidas mascota"; break;
     case EV_PET_WORD: txt = "Dice algo…"; break;
     case EV_PET_SPORES: txt = "Esporas"; break;
-    case EV_PET_COMPOST: txt = "Compostera come"; break;
+    case EV_PET_COMPOST: txt = "Come manzana"; break;
     case EV_NONE:
     case EV_KIND_COUNT:
     default: return 0;

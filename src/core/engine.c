@@ -44,6 +44,24 @@ void engine_toast(Engine *e, const char *text, uint32_t ms, uint32_t duration)
     e->toast_until_ms = ms + duration;
 }
 
+/* Puente para que los mundos (que no conocen el Engine) puedan lanzar mensajes. */
+static void toast_cb(void *user, const char *text, uint32_t ms, uint32_t duration)
+{
+    engine_toast((Engine *)user, text, ms, duration);
+}
+
+static WorldCtx make_ctx(Engine *e, int64_t now, uint32_t ms)
+{
+    WorldCtx ctx = {0};
+    ctx.now = now;
+    ctx.ms = ms;
+    ctx.index = e->gs.current_world;
+    ctx.buttons = e->in.down;
+    ctx.toast = toast_cb;
+    ctx.user = e;
+    return ctx;
+}
+
 static void wake(Engine *e, int64_t now, uint32_t ms, FrameOut *out)
 {
     int64_t slept = now - e->gs.last_seen;
@@ -152,18 +170,11 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
         return;
     }
     int y = 42, shown = 0;
-    for (int i = 0; i < gs->diary_count && y < 106; i++) {
+    for (int i = 0; i < gs->diary_count && y < 110; i++) {
         const DiaryEntry *d = state_diary_get(gs, i);
         char what[24], when[24];
-        switch ((EventKind)d->kind) {
-        case EV_BAG_REFILL: snprintf(what, sizeof(what), "+1 %s", state_item_name(d->a)); break;
-        case EV_BAG_FULL_LOST: snprintf(what, sizeof(what), "%s: no cupo", state_item_name(d->a)); break;
-        case EV_NEW_DAY: snprintf(what, sizeof(what), "Nuevo día"); break;
-        case EV_WAKE: snprintf(what, sizeof(what), "Dormí %uh", (unsigned)d->a); break;
-        default: continue;
-        }
-        if (d->kind == EV_WAKE && d->a == 0)
-            continue; /* siestas de minutos: ruido */
+        if (!state_event_text(what, sizeof(what), d))
+            continue;
         ago(when, sizeof(when), gs->tick - d->tick);
         gfx_text(fb, 8, y, what, C_DARK);
         gfx_text(fb, 112 - gfx_text_width(when), y, when, C_GREY);
@@ -176,10 +187,20 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
 
 static void draw_toast(const Engine *e, Framebuffer *fb)
 {
-    int w = gfx_text_width(e->toast) + 8;
-    int x = (LLV_W - w) / 2;
-    gfx_rect(fb, x, 12, w, 12, C_DARK);
-    gfx_text(fb, x + 4, 14, e->toast, C_WHITE);
+    if (!strchr(e->toast, '\n') && gfx_text_width(e->toast) <= 108) {
+        int w = gfx_text_width(e->toast) + 8;
+        int x = (LLV_W - w) / 2;
+        gfx_rect(fb, x, 12, w, 12, C_DARK);
+        gfx_text(fb, x + 4, 14, e->toast, C_WHITE);
+        return;
+    }
+    /* mensajes largos: caja de varias líneas */
+    int lines = gfx_text_wrap(NULL, 0, 0, 100, e->toast, C_WHITE);
+    int h = lines * GFX_LINE_H + 5;
+    int y = LLV_H - h - 3; /* abajo: no tapa lo importante de la escena */
+    gfx_rect(fb, 4, y, 112, h, C_DARK);
+    gfx_frame(fb, 4, y, 112, h, C_GREY);
+    gfx_text_wrap(fb, 10, y + 3, 100, e->toast, C_WHITE);
 }
 
 /* "Colapso": al despertar, el mundo tiembla entre versiones antes de fijarse (spec §9.3). */
@@ -225,7 +246,7 @@ FrameOut engine_frame(Engine *e, RawInput in, int64_t now, uint32_t ms)
             e->last_activity_ms = ms;
 
         GameState *gs = &e->gs;
-        WorldCtx ctx = {now, ms, gs->current_world};
+        WorldCtx ctx = make_ctx(e, now, ms);
         const World *w = WORLDS[gs->current_world];
         if (g != GEST_NONE && ms_pending(ms, e->diary_until_ms)) {
             e->diary_until_ms = 0; /* cualquier gesto cierra el diario */
@@ -270,7 +291,7 @@ FrameOut engine_frame(Engine *e, RawInput in, int64_t now, uint32_t ms)
         }
     }
 
-    WorldCtx ctx = {now, ms, e->gs.current_world};
+    WorldCtx ctx = make_ctx(e, now, ms);
     WORLDS[e->gs.current_world]->render(&e->gs, &ctx, &e->fb);
     draw_hud(e, now, &e->fb);
     if (ms_pending(ms, e->diary_until_ms))

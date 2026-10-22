@@ -18,7 +18,9 @@ find_library(LLV_MATH m)
 add_library(llv_core STATIC
   src/core/engine.c src/core/state.c src/core/input.c src/core/gfx.c src/core/font.c
   src/core/timeutil.c src/core/rng.c
-  src/core/worlds/reloj.c src/core/worlds/placeholder.c)
+  src/core/garden.c src/core/garden_data.c src/core/pet.c src/core/art.c
+  src/core/worlds/reloj.c src/core/worlds/jardin.c src/core/worlds/cobertizo.c
+  src/core/worlds/placeholder.c)
 target_include_directories(llv_core PUBLIC src/core)
 if(LLV_MATH)
   target_link_libraries(llv_core PUBLIC ${LLV_MATH})

@@ -14,7 +14,7 @@ typedef enum {
     SP_SEMILLA,
     SP_BROTE,
     SP_ARBOL_JOVEN,
-    SP_ARBOL,        /* etapas: 0 árbol, 1 árbol con fruta */
+    SP_ARBOL,        /* etapas: 0 árbol, 1 árbol con fruta, 2 árbol viejo */
     SP_MANZANA,      /* 0 fresca, 1 podrida */
     SP_HONGO,        /* 0 pequeño, 1 adulto */
     SP_FLOR,         /* 0 capullo, 1 flor, 2 marchita, 3 flor rara */

@@ -48,6 +48,12 @@ extern const World world_musica;
 extern const World world_pesca;
 extern const World world_cobertizo;
 
+/* Ayudas de interfaz del Cobertizo para tests y herramientas: el cursor es solo visual. */
+void jardin_ui_reset(void);
+void cobertizo_ui_reset(void);
+bool cobertizo_on_pet(const GameState *gs);
+bool cobertizo_breathing(void);
+
 /* Expuesto para tests: "Son las diez y veinticuatro de la mañana." */
 void reloj_time_in_words(char *buf, size_t n, int hour, int minute);
 

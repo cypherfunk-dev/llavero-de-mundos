@@ -156,7 +156,9 @@ static Entity *place_at(GameState *gs, uint8_t sp, uint8_t st, int near, bool fo
 {
     if (sp == SP_NONE || sp >= SP_COUNT || !garden_rule(sp, st))
         return NULL;
-    if (!force && !species_ok(gs, sp, SP_NONE))
+    /* force ignora los topes de lo que se acaba solo, pero nunca el de los árboles: lo que
+     * no se va por su cuenta tiene que respetar el límite o el jardín acabaría lleno. */
+    if ((!force || GARDEN_SPECIES[sp].group) && !species_ok(gs, sp, SP_NONE))
         return NULL;
     Entity *slot = NULL;
     for (int i = 0; i < LLV_GARDEN_MAX && !slot; i++)
@@ -440,6 +442,10 @@ static const char *use_item(GameState *gs, ItemKind item)
         uint32_t r = rng_below(&gs->rng, 100);
         uint8_t sp = r < 50 ? SP_SEMILLA : r < 80 ? SP_FLOR : SP_BROTE;
         Entity *e = garden_place(gs, sp, 0, -1, true);
+        if (!e && sp == SP_BROTE) { /* ya hay tantos árboles como caben: queda en semilla */
+            sp = SP_SEMILLA;
+            e = garden_place(gs, sp, 0, -1, true);
+        }
         if (!e)
             return "No cabe nada más.";
         return sp == SP_SEMILLA ? "Plantaste una semilla."
