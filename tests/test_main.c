@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../src/core/art.h"
 #include "../src/core/engine.h"
+#include "../src/core/garden.h"
+#include "../src/core/pet.h"
 #include "../src/core/timeutil.h"
 
 static int checks, failures;
@@ -628,6 +631,1356 @@ static void test_engine_gestures(void)
     CHECK_EQ(e.gs.current_world, 1);
 }
 
+
+/* ======================= fase 2: jardín, bolsa, Cobertizo y mascota ======================= */
+
+/* Helpers de la fase 2. */
+static void fill_bag(GameState *gs, Rng *r)
+{
+    while (gs->bag_count < LLV_BAG_SIZE)
+        state_bag_add(gs, (ItemKind)(1 + rng_below(r, ITEM_COUNT - 1)));
+}
+
+static Entity *ent_put(GameState *gs, uint8_t sp, uint8_t st, int cell, uint16_t left)
+{
+    for (int i = 0; i < LLV_GARDEN_MAX; i++)
+        if (gs->ents[i].sp == SP_NONE) {
+            gs->ents[i] = (Entity){sp, st, (uint8_t)cell, left};
+            return &gs->ents[i];
+        }
+    return NULL;
+}
+
+static void ent_clear(GameState *gs)
+{
+    memset(gs->ents, 0, sizeof(gs->ents));
+}
+
+/* Invariantes del jardín: tope de 32, casillas únicas y en rango, especies y etapas válidas. */
+static int garden_ok(const GameState *gs)
+{
+    uint64_t used = 0;
+    int n = 0;
+    for (int i = 0; i < LLV_GARDEN_MAX; i++) {
+        const Entity *e = &gs->ents[i];
+        if (e->sp == SP_NONE)
+            continue;
+        n++;
+        if (e->sp >= SP_COUNT || e->st >= GARDEN_STAGES || !garden_rule(e->sp, e->st))
+            return 0;
+        if (e->cell >= LLV_GARDEN_CELLS || (used >> e->cell & 1))
+            return 0;
+        used |= 1ull << e->cell;
+    }
+    return n <= LLV_GARDEN_MAX && n == garden_count(gs);
+}
+
+static int count_ev(const GameState *gs, EventKind k)
+{
+    return count_events(gs, k);
+}
+
+/* Cuenta los eventos del diario sin perder ninguno aunque el diario circular los pise:
+ * hay que llamar a ev_update al menos cada ~60 eventos (una vez al día sobra). */
+typedef struct {
+    uint32_t seen;
+    uint32_t n[EV_KIND_COUNT];
+} EvCount;
+
+static void ev_update(EvCount *c, const GameState *gs)
+{
+    uint32_t fresh = gs->diary_total - c->seen;
+    uint32_t k = fresh > gs->diary_count ? gs->diary_count : fresh;
+    CHECK(fresh <= LLV_DIARY_SIZE); /* si no, el contador habría perdido eventos */
+    for (uint32_t i = k; i-- > 0;)
+        c->n[state_diary_get(gs, (int)i)->kind]++;
+    c->seen = gs->diary_total;
+}
+
+/* Referencia en otoño (el 22 de octubre de 2026, 05:00): hay hojas, lluvia y fruta. */
+static int64_t t_autumn(void) { return time_from_civil(2026, 10, 22, 5, 0, 0); }
+
+static void test_tables(void)
+{
+    for (int sp = 1; sp < SP_COUNT; sp++) {
+        CHECK(GARDEN_SPECIES[sp].cap > 0);
+        int stages = 0;
+        for (int st = 0; st < GARDEN_STAGES; st++) {
+            const GardenRule *r = garden_rule((uint8_t)sp, (uint8_t)st);
+            if (!r)
+                continue;
+            stages++;
+            int sum = 0;
+            for (int k = 0; k < GARDEN_OUTCOMES && r->next[k].pct; k++) {
+                const Outcome *o = &r->next[k];
+                sum += o->pct;
+                CHECK(o->sp < SP_COUNT && o->sp2 < SP_COUNT);
+                if (o->sp)
+                    CHECK(garden_rule(o->sp, o->st) != NULL);
+                if (o->sp2)
+                    CHECK(garden_rule(o->sp2, o->st2) != NULL);
+                CHECK(o->ev < EV_KIND_COUNT && o->item < ITEM_COUNT);
+            }
+            if (r->dur) {
+                CHECK_EQ(sum, 100);
+                CHECK(r->then != NULL);
+            } else {
+                CHECK_EQ(sum, 0);
+            }
+        }
+        CHECK(stages > 0);
+    }
+    for (const GardenReact *r = GARDEN_REACT; r->sp; r++) {
+        CHECK(garden_rule(r->sp, r->st) != NULL);
+        CHECK(r->out.pct > 0);
+    }
+    for (const GardenInteract *it = GARDEN_INTERACT; it->asp; it++) {
+        CHECK(garden_rule(it->asp, it->ast) != NULL);
+        CHECK(it->tsp != SP_NONE && it->pct > 0 && it->pct <= 100);
+    }
+    for (const GardenSpawn *sp = GARDEN_SPAWN; sp->sp; sp++) {
+        CHECK(garden_rule(sp->sp, sp->st) != NULL);
+        CHECK(sp->permille > 0 && sp->seasons != 0);
+    }
+    for (const GardenDiscover *d = GARDEN_DISCOVER; d->sp; d++)
+        CHECK(d->slot < COLL_COUNT);
+    /* Los sprites tienen las filas del tamaño que dicen. */
+    CHECK_EQ(art_selfcheck(), 0);
+    /* Todo evento tiene texto para el diario y cabe junto a "hace 3 h". */
+    for (int k = 1; k < EV_KIND_COUNT; k++) {
+        DiaryEntry d = {0, (uint8_t)k, 1};
+        char buf[32] = "";
+        CHECK(state_event_text(buf, sizeof(buf), &d));
+        CHECK(strlen(buf) > 0 && gfx_text_width(buf) <= 84);
+    }
+    CHECK_EQ(garden_season(&(GameState){.tick = t_autumn() / LLV_TICK_SECONDS}), SEASON_AUTUMN);
+}
+
+static void test_state_size(void)
+{
+    GameState gs;
+    state_init(&gs, 1, t_autumn());
+    CHECK(sizeof(GameState) < 4096);
+    uint8_t buf[LLV_SAVE_MAX];
+    size_t n = ser(&gs, buf);
+    CHECK(n > 0 && n < 4096 && n <= LLV_SAVE_MAX);
+    printf("    (GameState: %zu bytes en memoria, %zu en el guardado)\n", sizeof(GameState), n);
+}
+
+static void test_garden_init(void)
+{
+    GameState gs;
+    state_init(&gs, 5, t_autumn());
+    CHECK(garden_ok(&gs));
+    CHECK(garden_count(&gs) >= 6);
+    CHECK_EQ(gs.collection, 0); /* el jardín inicial no cuenta como descubierto */
+    CHECK_EQ(garden_count_sp(&gs, SP_PIEDRA, ST_ANY), 2);
+    /* Otra semilla, otro jardín. */
+    GameState other;
+    state_init(&other, 6, t_autumn());
+    CHECK(!same_state(&gs, &other));
+}
+
+/* ---------- determinismo con todo el estado nuevo ---------- */
+
+typedef struct {
+    int64_t at;
+    int kind; /* 0 jardín, 1 preparar, 2 cuidar mascota */
+} Act;
+
+static void do_act(GameState *gs, const Act *a)
+{
+    char msg[96];
+    switch (a->kind) {
+    case 0: garden_act(gs, 1, NULL, NULL, NULL); break;
+    case 1:
+        if (gs->bag_count)
+            gs->prepared = gs->bag[gs->bag_count - 1];
+        break;
+    default: pet_care(gs, 5, msg, sizeof(msg)); break;
+    }
+}
+
+static int make_acts(Act *acts, int max, int64_t start, int days, uint64_t seed)
+{
+    Rng r;
+    rng_seed(&r, seed, 3);
+    int n = 0;
+    int64_t t = start;
+    while (n < max) {
+        t += 600 + (int64_t)rng_below(&r, 6 * 3600);
+        if (t >= start + (int64_t)days * 86400)
+            break;
+        acts[n].at = t;
+        acts[n].kind = (int)rng_below(&r, 3);
+        n++;
+    }
+    return n;
+}
+
+static void test_garden_determinism_live_vs_catchup(void)
+{
+    const int64_t days[] = {1, 3, 7};
+    for (unsigned k = 0; k < sizeof(days) / sizeof(days[0]); k++) {
+        int64_t end = t_autumn() + days[k] * 86400;
+        GameState live, batch;
+        state_init(&live, 4321, t_autumn());
+        state_init(&batch, 4321, t_autumn());
+        pet_choose(&live, PET_HONGO);
+        pet_choose(&batch, PET_HONGO);
+        for (int64_t t = t_autumn(); t <= end; t++)
+            engine_advance(&live, t);
+        CHECK_EQ(engine_advance(&batch, end), days[k] * 144);
+        CHECK(same_state(&live, &batch));
+        CHECK(garden_ok(&live));
+    }
+}
+
+static void test_garden_determinism_with_actions(void)
+{
+    /* Mismas acciones a las mismas horas: A avanza segundo a segundo; B salta de acción en
+     * acción. El estado debe coincidir byte a byte con jardín, bolsa, clima y mascota. */
+    for (int kind = PET_HONGO; kind < PET_COUNT; kind++) {
+        static Act acts[256];
+        int n = make_acts(acts, 256, t_autumn(), 12, 100 + (uint64_t)kind);
+        GameState a, b;
+        state_init(&a, 777 + (uint64_t)kind, t_autumn());
+        state_init(&b, 777 + (uint64_t)kind, t_autumn());
+        pet_choose(&a, (PetKind)kind);
+        pet_choose(&b, (PetKind)kind);
+        int64_t end = t_autumn() + 12 * 86400;
+        int next = 0;
+        for (int64_t t = t_autumn(); t <= end; t++) {
+            engine_advance(&a, t);
+            while (next < n && acts[next].at == t) {
+                do_act(&a, &acts[next]);
+                next++;
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            engine_advance(&b, acts[i].at);
+            do_act(&b, &acts[i]);
+        }
+        engine_advance(&b, end);
+        /* Los dos recorrieron los 12 días (más allá del tope de catch-up por tramos). */
+        CHECK(same_state(&a, &b));
+        CHECK(garden_ok(&a));
+        CHECK(garden_count(&a) > 0);
+    }
+}
+
+static void gesture(Engine *e, uint8_t btn, int64_t now, uint32_t *ms, bool dense, uint32_t hold_ms)
+{
+    RawInput down = {btn, false}, up = {0, false};
+    uint32_t t0 = *ms;
+    if (dense) {
+        for (uint32_t t = 0; t < hold_ms; t += 33)
+            engine_frame(e, down, now, t0 + t);
+        engine_frame(e, up, now, t0 + hold_ms);
+        for (uint32_t t = 100; t <= 400; t += 100)
+            engine_frame(e, up, now, t0 + hold_ms + t);
+    } else {
+        engine_frame(e, down, now, t0);
+        engine_frame(e, down, now, t0 + hold_ms);
+        engine_frame(e, up, now, t0 + hold_ms + 20);
+    }
+    *ms = t0 + hold_ms + 400;
+}
+
+/* Un guion de gestos aleatorio (pero el mismo siempre). 'dense' pinta un fotograma cada 33 ms;
+ * si no, solo los justos. Guarda una foto del estado tras cada paso. */
+#define SCRIPT_STEPS 60
+static uint8_t snaps[2][SCRIPT_STEPS][LLV_SAVE_MAX];
+static size_t snap_len[2][SCRIPT_STEPS];
+
+static void run_gesture_script(Engine *e, bool dense, int slot)
+{
+    uint32_t ms = 1000;
+    jardin_ui_reset();
+    cobertizo_ui_reset();
+    engine_init(e, 99, t_autumn(), ms);
+    RawInput none = {0, false};
+    int64_t now = t_autumn();
+    Rng r;
+    rng_seed(&r, 21, 2);
+    for (int step = 0; step < SCRIPT_STEPS; step++) {
+        now += 60 + (int64_t)rng_below(&r, 4 * 3600);
+        ms += 5000;
+        engine_frame(e, none, now, ms);
+        int world = (int)rng_below(&r, 3); /* 0: jardín, 1: cobertizo (preparar), 2: cobertizo (mascota) */
+        for (int i = 0; i < 6 && e->gs.current_world != (world == 0 ? 1 : 5); i++)
+            gesture(e, BTN_B, now, &ms, dense, 80);
+        if (e->gs.current_world == 1) {
+            gesture(e, BTN_A, now, &ms, dense, 80);
+            gesture(e, BTN_A, now, &ms, dense, LLV_HOLD_MS + 100);
+        } else if (e->gs.current_world == 5) {
+            if (e->gs.pet.kind == PET_NONE)
+                gesture(e, BTN_A, now, &ms, dense, LLV_HOLD_MS + 100);
+            gesture(e, BTN_A, now, &ms, dense, LLV_HOLD_MS + 100);
+        }
+        engine_sleep(e, now + 20);
+        now += 20;
+        snap_len[slot][step] = state_serialize(&e->gs, snaps[slot][step], LLV_SAVE_MAX);
+    }
+}
+
+static void test_engine_determinism_gestures(void)
+{
+    /* Dos motores reciben los mismos gestos a las mismas horas; uno pinta fotogramas todo el
+     * rato y el otro solo los justos. El estado (jardín, bolsa, mascota) debe ser idéntico
+     * tras cada paso, byte a byte. */
+    static Engine a, b;
+    run_gesture_script(&a, true, 0);
+    run_gesture_script(&b, false, 1);
+    for (int step = 0; step < SCRIPT_STEPS; step++) {
+        CHECK(snap_len[0][step] > 0 && snap_len[0][step] == snap_len[1][step]);
+        CHECK(memcmp(snaps[0][step], snaps[1][step], snap_len[0][step]) == 0);
+    }
+    CHECK(garden_ok(&a.gs));
+    CHECK(a.gs.pet.kind != PET_NONE);
+    CHECK(a.gs.looks_total >= SCRIPT_STEPS);
+    CHECK(a.gs.actions_used[1] + a.gs.actions_used[5] + a.gs.diary_total > 0);
+}
+
+/* ---------- límite de 32 y vida a largo plazo ---------- */
+
+static void test_garden_never_overflows(void)
+{
+    /* 1.200 días (3,3 años), con muchos objetos gastados (se rompe el límite diario a
+     * propósito) y mirando las invariantes en cada macro tick. */
+    GameState gs;
+    state_init(&gs, 2024, t_autumn());
+    pet_choose(&gs, PET_COMPOSTERA);
+    Rng r;
+    rng_seed(&r, 5, 5);
+    int64_t t = t_autumn();
+    int max_seen = 0, used = 0, sum = 0, ticks = 0;
+    for (int day = 0; day < 1200; day++) {
+        for (int k = 0; k < 6; k++) { /* 6 usos al día: mucho más de lo permitido */
+            fill_bag(&gs, &r);
+            gs.actions_used[1] = 0;
+            used += garden_act(&gs, 1, NULL, NULL, NULL) == ACT_OK;
+        }
+        for (int h = 0; h < 144; h++) {
+            t += LLV_TICK_SECONDS;
+            engine_advance(&gs, t);
+            int c = garden_count(&gs);
+            if (c > max_seen)
+                max_seen = c;
+            sum += c;
+            ticks++;
+            if (!garden_ok(&gs)) {
+                CHECK(0 && "invariante del jardin rota");
+                return;
+            }
+        }
+    }
+    CHECK(used >= 7000);
+    CHECK(max_seen <= LLV_GARDEN_MAX);
+    CHECK(max_seen >= 10);              /* sí hay vida */
+    CHECK(sum / ticks >= 6);            /* y no se queda vacío */
+    printf("    (1200 dias, uso extremo: media %d cosas, maximo %d, %d usos)\n", sum / ticks, max_seen, used);
+}
+
+static void test_garden_realistic_week_is_alive(void)
+{
+    /* Uso normal (2 acciones al día, como manda el límite) durante 400 días: el jardín vive,
+     * no se vacía y no se satura. */
+    GameState gs;
+    state_init(&gs, 4040, t_autumn());
+    pet_choose(&gs, PET_HONGO);
+    int64_t t = t_autumn();
+    long sum = 0, ticks = 0;
+    int max_seen = 0, min_seen = 99;
+    for (int day = 0; day < 400; day++) {
+        for (int h = 0; h < 144; h++) {
+            t += LLV_TICK_SECONDS;
+            engine_advance(&gs, t);
+            if (day >= 10) {
+                int c = garden_count(&gs);
+                sum += c;
+                ticks++;
+                if (c > max_seen)
+                    max_seen = c;
+                if (c < min_seen)
+                    min_seen = c;
+            }
+            if (h == 20 || h == 90) /* dos miradas al día */
+                garden_act(&gs, 1, NULL, NULL, NULL);
+        }
+    }
+    CHECK(sum / ticks >= 9 && sum / ticks <= 24);
+    CHECK(min_seen >= 4);
+    CHECK(max_seen <= LLV_GARDEN_MAX);
+    printf("    (400 dias, uso normal: media %ld cosas, entre %d y %d)\n", sum / ticks, min_seen, max_seen);
+}
+
+static void test_garden_full_spawns_nothing(void)
+{
+    GameState gs;
+    state_init(&gs, 9, t_autumn());
+    ent_clear(&gs);
+    for (int i = 0; i < LLV_GARDEN_MAX; i++)
+        ent_put(&gs, SP_PIEDRA, 0, i, 0);
+    CHECK_EQ(garden_count(&gs), LLV_GARDEN_MAX);
+    CHECK(garden_place(&gs, SP_FLOR, 0, -1, true) == NULL);
+    CHECK(garden_place(&gs, SP_SEMILLA, 0, 3, false) == NULL);
+    /* Ni los objetos ni el tiempo hacen nacer nada en un jardín lleno. */
+    Rng r;
+    rng_seed(&r, 1, 1);
+    for (int i = 0; i < 40; i++) {
+        fill_bag(&gs, &r);
+        gs.actions_used[1] = 0;
+        garden_act(&gs, 1, NULL, NULL, NULL);
+        for (int k = 0; k < 60; k++)
+            garden_tick(&gs);
+        CHECK_EQ(garden_count(&gs), LLV_GARDEN_MAX);
+        CHECK(garden_ok(&gs));
+    }
+    /* Las piedras no cambian: siguen siendo las 32. */
+    CHECK_EQ(garden_count_sp(&gs, SP_PIEDRA, ST_ANY), LLV_GARDEN_MAX);
+}
+
+static void test_species_caps(void)
+{
+    /* Sin tocar nada durante 300 días, los topes por especie se cumplen siempre. */
+    GameState gs;
+    state_init(&gs, 31, t_autumn());
+    int64_t t = t_autumn();
+    for (int day = 0; day < 300; day++) {
+        t += 86400;
+        engine_advance(&gs, t);
+        for (int sp = 1; sp < SP_COUNT; sp++)
+            CHECK(garden_count_sp(&gs, (uint8_t)sp, ST_ANY) <= GARDEN_SPECIES[sp].cap + 1);
+        int trees = garden_count_sp(&gs, SP_BROTE, ST_ANY) + garden_count_sp(&gs, SP_ARBOL_JOVEN, ST_ANY) +
+                    garden_count_sp(&gs, SP_ARBOL, ST_ANY);
+        CHECK(trees <= LLV_TREE_MAX);
+    }
+}
+
+/* ---------- acciones: límite de 2 al día y reinicio a las 05:00 ---------- */
+
+static void test_garden_action_limit(void)
+{
+    int64_t t = time_from_civil(2026, 10, 22, 4, 30, 0);
+    GameState gs;
+    state_init(&gs, 8, t);
+    Rng r;
+    rng_seed(&r, 3, 3);
+    fill_bag(&gs, &r);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_OK);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_OK);
+    CHECK_EQ(gs.actions_used[1], 2);
+    CHECK_EQ(gs.bag_count, 3);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_NO_ACTIONS);
+    CHECK_EQ(gs.bag_count, 3); /* no gasta nada */
+    CHECK_EQ(gs.actions_used[1], 2);
+    /* A las 04:50 sigue el mismo día del llavero; a las 05:00, no. */
+    engine_advance(&gs, time_from_civil(2026, 10, 22, 4, 50, 0));
+    fill_bag(&gs, &r);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_NO_ACTIONS);
+    engine_advance(&gs, time_from_civil(2026, 10, 22, 5, 0, 0));
+    CHECK_EQ(gs.actions_used[1], 0);
+    fill_bag(&gs, &r);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_OK);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_OK);
+    CHECK_EQ(garden_act(&gs, 1, NULL, NULL, NULL), ACT_NO_ACTIONS);
+    /* Bolsa vacía: no es "descansa" sino "sin objetos" (y tampoco gasta la acción). */
+    GameState empty;
+    state_init(&empty, 8, t);
+    empty.bag_count = 0;
+    memset(empty.bag, 0, sizeof(empty.bag));
+    CHECK_EQ(garden_act(&empty, 1, NULL, NULL, NULL), ACT_NO_ITEMS);
+    CHECK_EQ(empty.actions_used[1], 0);
+}
+
+static int has(const char *hay, const char *needle)
+{
+    return strstr(hay, needle) != NULL;
+}
+
+static void test_engine_garden_messages(void)
+{
+    static Engine e;
+    uint32_t ms = 1000;
+    int64_t now = time_from_civil(2026, 10, 22, 12, 0, 0);
+    engine_init(&e, 4, now, ms);
+    RawInput none = {0, false};
+    for (int i = 0; i < 40; i++)
+        engine_frame(&e, none, now, ms += 33);
+    e.gs.current_world = 1;
+    e.gs.bag_count = 0;
+    memset(e.gs.bag, 0, sizeof(e.gs.bag));
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK(has(e.toast, "vac")); /* "La bolsa está vacía" */
+    CHECK_EQ(e.gs.actions_used[1], 0);
+    state_bag_add(&e.gs, ITEM_NUBE);
+    state_bag_add(&e.gs, ITEM_VIENTO);
+    state_bag_add(&e.gs, ITEM_SEMILLA);
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK(has(e.toast, "Sacaste: "));
+    CHECK_EQ(e.gs.actions_used[1], 2 - 1);
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK_EQ(e.gs.actions_used[1], 2);
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK(has(e.toast, "descansa"));
+    CHECK(has(e.toast, "17 h")); /* de las 12:00 a las 05:00 del día siguiente */
+    CHECK_EQ(e.gs.actions_used[1], 2);
+    CHECK_EQ(e.gs.bag_count, 1);
+}
+
+static void test_prepared_item(void)
+{
+    GameState gs;
+    state_init(&gs, 3, t_autumn());
+    gs.bag_count = 0;
+    memset(gs.bag, 0, sizeof(gs.bag));
+    state_bag_add(&gs, ITEM_NUBE);
+    state_bag_add(&gs, ITEM_LOMBRIZ);
+    state_bag_add(&gs, ITEM_SEMILLA);
+    gs.prepared = ITEM_LOMBRIZ;
+    ItemKind used;
+    int prep = 0;
+    const char *msg = "";
+    CHECK_EQ(garden_act(&gs, 1, &used, &prep, &msg), ACT_OK);
+    CHECK_EQ(used, ITEM_LOMBRIZ);
+    CHECK_EQ(prep, 1);
+    CHECK_EQ(gs.prepared, ITEM_NONE);
+    CHECK_EQ(gs.bag_count, 2);
+    CHECK(strlen(msg) > 0);
+    CHECK(garden_count_sp(&gs, SP_LOMBRIZ, ST_ANY) >= 1);
+    /* El diario lo anota. */
+    const DiaryEntry *d = NULL;
+    for (int i = 0; i < gs.diary_count && !d; i++)
+        if (state_diary_get(&gs, i)->kind == EV_ITEM_USED)
+            d = state_diary_get(&gs, i);
+    CHECK(d && d->a == ITEM_LOMBRIZ);
+    /* Sin preparado: aleatorio, y prep = 0. */
+    CHECK_EQ(garden_act(&gs, 1, &used, &prep, &msg), ACT_OK);
+    CHECK_EQ(prep, 0);
+    CHECK(used == ITEM_NUBE || used == ITEM_SEMILLA);
+}
+
+/* ---------- efectos de los objetos ---------- */
+
+static void quiet_state(GameState *gs, int64_t t)
+{
+    state_init(gs, 12, t);
+    ent_clear(gs);
+    gs->weather = W_CLEAR;
+    gs->weather_left = 0;
+    gs->bag_count = 0;
+    memset(gs->bag, 0, sizeof(gs->bag));
+}
+
+static void test_item_effects(void)
+{
+    GameState gs;
+    ItemKind used;
+    int prep;
+    const char *msg;
+    /* Nube: lluvia. */
+    quiet_state(&gs, t_autumn() + 8 * 3600);
+    state_bag_add(&gs, ITEM_NUBE);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(gs.weather, W_RAIN);
+    CHECK(gs.weather_left >= LLV_RAIN_ITEM_TICKS);
+    CHECK_EQ(count_ev(&gs, EV_RAIN), 1);
+    /* Nube en invierno: nieva. */
+    quiet_state(&gs, time_from_civil(2026, 1, 15, 10, 0, 0));
+    state_bag_add(&gs, ITEM_NUBE);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(gs.weather, W_SNOW);
+    /* Viento: cae la fruta (junto al árbol) y vuelan semillas. */
+    quiet_state(&gs, t_autumn() + 8 * 3600);
+    ent_put(&gs, SP_ARBOL, 1, 10, 500);
+    ent_put(&gs, SP_ARBOL, 1, 20, 500);
+    state_bag_add(&gs, ITEM_VIENTO);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(garden_count_sp(&gs, SP_ARBOL, 1), 0);
+    CHECK_EQ(garden_count_sp(&gs, SP_ARBOL, 0), 2);
+    CHECK_EQ(garden_count_sp(&gs, SP_MANZANA, 0), 2);
+    CHECK(garden_count_sp(&gs, SP_SEMILLA, ST_ANY) >= 1);
+    CHECK_EQ(count_ev(&gs, EV_APPLE_FALL), 2);
+    CHECK(has(msg, "fruta"));
+    CHECK(garden_ok(&gs));
+    /* Semilla: planta algo. */
+    quiet_state(&gs, t_autumn());
+    state_bag_add(&gs, ITEM_SEMILLA);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(garden_count(&gs), 1);
+    CHECK(has(msg, "Plantaste"));
+    /* Alpiste: baja un pájaro goloso; con uno ya presente, se queda. */
+    quiet_state(&gs, t_autumn());
+    state_bag_add(&gs, ITEM_ALPISTE);
+    state_bag_add(&gs, ITEM_ALPISTE);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(garden_count_sp(&gs, SP_PAJARO, 1), 1);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(garden_count_sp(&gs, SP_PAJARO, ST_ANY), 1);
+    CHECK(state_collect(&gs, COLL_PAJARO) == 0); /* ya descubierto al llegar */
+    /* Lombriz: abono (las plantas tienen menos que esperar) y una lombriz. */
+    quiet_state(&gs, t_autumn());
+    ent_put(&gs, SP_BROTE, 0, 4, 100);
+    state_bag_add(&gs, ITEM_LOMBRIZ);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(garden_count_sp(&gs, SP_LOMBRIZ, ST_ANY), 1);
+    CHECK_EQ(gs.ents[0].left, 50);
+    /* Deseo: de día arcoíris, de noche estrella fugaz; y siempre una flor rara. */
+    quiet_state(&gs, time_from_civil(2026, 10, 22, 12, 0, 0));
+    state_bag_add(&gs, ITEM_DESEO);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(gs.sky, SKY_RAINBOW);
+    CHECK(gs.collection & (1u << COLL_ARCOIRIS));
+    CHECK_EQ(garden_count_sp(&gs, SP_FLOR, 3), 1);
+    CHECK(gs.collection & (1u << COLL_FLOR_RARA));
+    quiet_state(&gs, time_from_civil(2026, 10, 22, 23, 0, 0));
+    state_bag_add(&gs, ITEM_DESEO);
+    garden_act(&gs, 1, &used, &prep, &msg);
+    CHECK_EQ(gs.sky, SKY_STAR);
+    CHECK(gs.collection & (1u << COLL_ESTRELLA));
+    CHECK(has(msg, "estrella"));
+}
+
+/* ---------- cadenas ---------- */
+
+/* Una manzana podrida con una sola vuelta de reloj por delante: ¿en qué se convierte? */
+static void test_rotten_apple_chain_statistics(void)
+{
+    const int N = 20000;
+    int brote = 0, hongo = 0, nada = 0;
+    GameState gs;
+    state_init(&gs, 77, time_from_civil(2026, 4, 10, 10, 0, 0)); /* primavera, sin nieve */
+    for (int i = 0; i < N; i++) {
+        ent_clear(&gs);
+        gs.weather = W_CLEAR;
+        gs.weather_left = 0;
+        ent_put(&gs, SP_MANZANA, 1, 17, 1);
+        garden_tick(&gs);
+        /* Otras cosas pueden nacer solas ese tick, pero ni brotes ni hongos (sin lluvia). */
+        if (garden_count_sp(&gs, SP_BROTE, ST_ANY))
+            brote++;
+        else if (garden_count_sp(&gs, SP_HONGO, ST_ANY))
+            hongo++;
+        else
+            nada++;
+    }
+    CHECK_EQ(brote + hongo + nada, N);
+    CHECK(abs(brote * 100 / N - 40) <= 2);
+    CHECK(abs(hongo * 100 / N - 30) <= 2);
+    CHECK(abs(nada * 100 / N - 30) <= 2);
+    printf("    (podrida -> brote %d %%, hongo %d %%, nada %d %%)\n", brote * 100 / N, hongo * 100 / N, nada * 100 / N);
+}
+
+/* Ticks hasta que 'e' cambie de etapa, con cielo despejado y sin pájaros que se la coman. */
+static int ticks_until_change(GameState *gs, Entity *e, int max)
+{
+    uint8_t sp = e->sp, st = e->st;
+    for (int k = 1; k <= max; k++) {
+        gs->weather = W_CLEAR;
+        gs->weather_left = 0;
+        garden_tick(gs);
+        for (int j = 0; j < LLV_GARDEN_MAX; j++)
+            if (gs->ents[j].sp == SP_PAJARO)
+                garden_remove(gs, &gs->ents[j]);
+        if (e->sp != sp || e->st != st)
+            return k;
+    }
+    return -1;
+}
+
+static void test_apple_chain_timing(void)
+{
+    /* Fresca ~2 días (288 ticks) -> podrida ~1 día (144) -> brote | hongo | nada, con ±25 %.
+     * En invierno no llueve (no hay lombrices ni lluvia que acelere) y se quitan los pájaros. */
+    GameState gs;
+    state_init(&gs, 5, time_from_civil(2026, 1, 15, 10, 0, 0));
+    int min1 = 1 << 30, max1 = 0, min2 = 1 << 30, max2 = 0, kept = 0;
+    long sum1 = 0, sum2 = 0;
+    for (int i = 0; i < 300; i++) {
+        ent_clear(&gs);
+        ent_put(&gs, SP_ARBOL, 1, 9, 1);
+        garden_tick(&gs); /* el árbol suelta su manzana al acabarse su cuenta */
+        Entity *apple = NULL;
+        for (int j = 0; j < LLV_GARDEN_MAX; j++)
+            if (gs.ents[j].sp == SP_MANZANA)
+                apple = &gs.ents[j];
+        CHECK(apple != NULL);
+        if (!apple)
+            return;
+        int fresh = ticks_until_change(&gs, apple, 500);
+        if (fresh < 0 || apple->sp != SP_MANZANA || apple->st != 1)
+            continue; /* un pájaro se la llevó: no cuenta */
+        int rot = ticks_until_change(&gs, apple, 500);
+        if (rot < 0)
+            continue;
+        kept++;
+        sum1 += fresh;
+        sum2 += rot;
+        if (fresh < min1) min1 = fresh;
+        if (fresh > max1) max1 = fresh;
+        if (rot < min2) min2 = rot;
+        if (rot > max2) max2 = rot;
+    }
+    CHECK(kept >= 150);
+    CHECK(min1 >= 216 - 2 && max1 <= 360);
+    CHECK(min2 >= 108 && max2 <= 180);
+    CHECK(abs((int)(sum1 / kept) - 288) < 12); /* ~2 días */
+    CHECK(abs((int)(sum2 / kept) - 144) < 8);
+}
+
+static void test_wind_drops_fruit(void)
+{
+    GameState gs;
+    state_init(&gs, 5, time_from_civil(2026, 4, 10, 10, 0, 0));
+    ent_clear(&gs);
+    ent_put(&gs, SP_ARBOL, 1, 9, 400);
+    ent_put(&gs, SP_HOJAS, 0, 20, 400);
+    gs.weather = W_WIND;
+    gs.weather_left = 100;
+    int fell = 0;
+    for (int k = 0; k < 40 && !fell; k++) {
+        gs.weather = W_WIND;
+        gs.weather_left = 100;
+        garden_tick(&gs);
+        fell = garden_count_sp(&gs, SP_MANZANA, 0) > 0;
+    }
+    CHECK(fell);
+    CHECK_EQ(garden_count_sp(&gs, SP_ARBOL, 0), 1);
+    CHECK(count_ev(&gs, EV_APPLE_FALL) >= 1);
+    CHECK(gs.collection & (1u << COLL_MANZANA));
+    /* La manzana cayó al lado del árbol. */
+    for (int i = 0; i < LLV_GARDEN_MAX; i++)
+        if (gs.ents[i].sp == SP_MANZANA) {
+            int dx = abs(gs.ents[i].cell % LLV_GARDEN_COLS - 9 % LLV_GARDEN_COLS);
+            int dy = abs(gs.ents[i].cell / LLV_GARDEN_COLS - 9 / LLV_GARDEN_COLS);
+            CHECK(dx <= 1 && dy <= 1);
+        }
+}
+
+static void test_bird_eats_apple_and_leaves_seed(void)
+{
+    int ate = 0;
+    for (int seed = 0; seed < 40; seed++) {
+        GameState gs;
+        state_init(&gs, (uint64_t)seed, time_from_civil(2026, 4, 10, 10, 0, 0));
+        ent_clear(&gs);
+        gs.bag_count = 0;
+        memset(gs.bag, 0, sizeof(gs.bag));
+        ent_put(&gs, SP_MANZANA, 0, 3, 200);
+        ent_put(&gs, SP_PAJARO, 0, 30, 12);
+        for (int k = 0; k < 14; k++) {
+            gs.weather = W_CLEAR;
+            garden_tick(&gs);
+        }
+        if (garden_count_sp(&gs, SP_MANZANA, ST_ANY) == 0 && count_ev(&gs, EV_BIRD_SEED) == 1) {
+            ate++;
+            CHECK(garden_count_sp(&gs, SP_SEMILLA, ST_ANY) >= 1);
+            int in_bag = 0;
+            for (int k = 0; k < gs.bag_count; k++)
+                in_bag += gs.bag[k] == ITEM_SEMILLA;
+            CHECK_EQ(in_bag, 1); /* y deja una semilla en la bolsa */
+        }
+    }
+    CHECK(ate >= 15); /* 12 ticks al 18 % por tick: la mayoría de las veces se la come */
+}
+
+static void test_rain_speeds_growth(void)
+{
+    GameState dry, wet;
+    state_init(&dry, 3, time_from_civil(2026, 4, 10, 10, 0, 0));
+    wet = dry;
+    ent_clear(&dry);
+    ent_clear(&wet);
+    Entity *a = ent_put(&dry, SP_BROTE, 0, 5, 200);
+    Entity *b = ent_put(&wet, SP_BROTE, 0, 5, 200);
+    for (int k = 0; k < 40; k++) {
+        dry.weather = W_CLEAR;
+        wet.weather = W_RAIN;
+        wet.weather_left = 50;
+        garden_tick(&dry);
+        garden_tick(&wet);
+    }
+    CHECK_EQ(a->left, 160);
+    CHECK_EQ(b->left, 200 - 40 * LLV_WET_MULT);
+    /* Las ranas salen de los charcos que deja la lluvia. */
+    int frogs = 0;
+    for (int seed = 0; seed < 200; seed++) {
+        GameState gs;
+        state_init(&gs, (uint64_t)seed, time_from_civil(2026, 4, 10, 10, 0, 0));
+        ent_clear(&gs);
+        ent_put(&gs, SP_CHARCO, 0, 5, 1);
+        gs.weather = W_CLEAR;
+        garden_tick(&gs);
+        frogs += garden_count_sp(&gs, SP_RANA, ST_ANY);
+    }
+    CHECK(frogs >= 12 && frogs <= 36); /* ~12 % */
+}
+
+static int simulate_days(GameState *gs, int days, int *seen_flags)
+{
+    int64_t t = gs->tick * LLV_TICK_SECONDS;
+    for (int d = 0; d < days; d++)
+        for (int h = 0; h < 144; h++) {
+            t += LLV_TICK_SECONDS;
+            engine_advance(gs, t);
+            for (int sp = 1; sp < SP_COUNT; sp++)
+                if (garden_count_sp(gs, (uint8_t)sp, ST_ANY))
+                    seen_flags[sp] = 1;
+        }
+    return 0;
+}
+
+static void test_seasons(void)
+{
+    int winter[SP_COUNT] = {0}, summer[SP_COUNT] = {0}, autumn[SP_COUNT] = {0};
+    GameState gs;
+    state_init(&gs, 14, time_from_civil(2026, 1, 5, 6, 0, 0));
+    simulate_days(&gs, 40, winter);
+    state_init(&gs, 14, time_from_civil(2026, 7, 5, 6, 0, 0));
+    simulate_days(&gs, 40, summer);
+    state_init(&gs, 14, time_from_civil(2026, 10, 5, 6, 0, 0));
+    simulate_days(&gs, 40, autumn);
+    CHECK(winter[SP_NIEVE]);       /* nieva en invierno... */
+    CHECK(!summer[SP_NIEVE]);      /* ...y nunca en verano */
+    CHECK(!autumn[SP_NIEVE] || garden_season(&gs) == SEASON_WINTER);
+    CHECK(autumn[SP_HOJAS]);       /* hojas secas en otoño */
+    CHECK(!summer[SP_HOJAS]);
+    CHECK(summer[SP_ABEJA] || summer[SP_FLOR]);
+}
+
+static void test_collection(void)
+{
+    GameState gs;
+    state_init(&gs, 1, t_autumn());
+    CHECK_EQ(state_collect(&gs, COLL_RANA), 1);
+    CHECK_EQ(state_collect(&gs, COLL_RANA), 0);
+    CHECK_EQ(count_ev(&gs, EV_DISCOVER), 1);
+    CHECK_EQ(gs.collection, 1u << COLL_RANA);
+    CHECK_EQ(state_collect(&gs, COLL_PEZ5), 1); /* gancho para la fase 5 */
+    CHECK_EQ(state_collect(&gs, COLL_COUNT), 0);
+    CHECK_STR(state_coll_name(COLL_RANA), "Rana");
+    /* Nacer algo nuevo lo descubre; el jardín inicial no. */
+    ent_clear(&gs);
+    gs.collection = 0;
+    garden_place(&gs, SP_HONGO, 0, -1, false);
+    CHECK(gs.collection & (1u << COLL_HONGO));
+}
+
+/* ---------- mascota ---------- */
+
+static void test_pet_choose_and_ficha(void)
+{
+    GameState gs;
+    state_init(&gs, 2, t_autumn());
+    CHECK(!pet_choose(&gs, PET_NONE));
+    CHECK(!pet_choose(&gs, PET_COUNT));
+    CHECK(pet_choose(&gs, PET_HONGO));
+    CHECK(!pet_choose(&gs, PET_PIEDRA)); /* ya hay una */
+    CHECK_EQ(gs.pet.kind, PET_HONGO);
+    CHECK_EQ(gs.pet.gen, 1);
+    /* El hongo del ejemplo del spec: día 43, 7 px, "hm.". */
+    gs.pet.age = 42 * LLV_TICKS_PER_DAY + 5;
+    gs.pet.thought = 0;
+    char lines[10][24];
+    int n = pet_ficha(&gs.pet, lines, 10);
+    CHECK(n >= 8);
+    CHECK_STR(lines[0], "HONGO · Gen 1");
+    CHECK_STR(lines[1], "Día 43");
+    CHECK_STR(lines[2], "Altura: 7 px");
+    CHECK_STR(lines[3], "(+0,1 hoy)");
+    CHECK_STR(lines[4], "Humor:");
+    CHECK_STR(lines[n - 1], "\"hm.\"");
+    for (int i = 0; i < n; i++)
+        CHECK(gfx_text_width(lines[i]) <= 104);
+    /* Rarezas por mascota. */
+    Pet p = gs.pet;
+    p.kind = PET_PIEDRA;
+    n = pet_ficha(&p, lines, 10);
+    CHECK_STR(lines[2], "Peso: 120 g");
+    CHECK_STR(lines[3], "(estable)");
+    CHECK_STR(pet_thought(&p), ""); /* nunca dice nada */
+    p.kind = PET_COMPOSTERA;
+    n = pet_ficha(&p, lines, 10);
+    CHECK_STR(lines[3], "Productividad:");
+    CHECK_STR(lines[4], "+0,2 %");
+    CHECK_EQ(pet_worms(&p), 3 + 42 * 144 * 9 / LLV_PET_CYCLE_TICKS);
+    for (int k = 1; k < PET_COUNT; k++) {
+        p.kind = (uint8_t)k;
+        p.age = 0;
+        CHECK_EQ(pet_stage(&p), 0);
+        p.age = LLV_PET_CYCLE_TICKS - 1;
+        CHECK_EQ(pet_stage(&p), pet_stage_count((PetKind)k) - 1);
+        CHECK(strlen(pet_name((PetKind)k)) > 0 && strlen(pet_blurb((PetKind)k)) > 0);
+    }
+}
+
+static void test_pet_never_dies_and_generations(void)
+{
+    for (int kind = PET_HONGO; kind < PET_COUNT; kind++) {
+        GameState gs;
+        state_init(&gs, 50 + (uint64_t)kind, t_autumn());
+        pet_choose(&gs, (PetKind)kind);
+        int64_t t = t_autumn();
+        int min_happy = 255;
+        EvCount ev = {0};
+        /* 3,3 ciclos sin cuidarla jamás. */
+        for (int d = 0; d < 335; d++) {
+            for (int h = 0; h < 144; h++) {
+                t += LLV_TICK_SECONDS;
+                engine_advance(&gs, t);
+                if (gs.pet.happy < min_happy)
+                    min_happy = gs.pet.happy;
+                CHECK_EQ(gs.pet.kind, kind);
+                CHECK(gs.pet.age < LLV_PET_CYCLE_TICKS);
+            }
+            ev_update(&ev, &gs);
+            if (d == 99) /* justo al completar los 100 días */
+                CHECK_EQ(gs.pet.gen, 2);
+        }
+        CHECK_EQ(gs.pet.gen, 4);
+        CHECK(min_happy >= 30);                    /* como mucho, pensativa */
+        CHECK(strlen(pet_mood(&gs.pet)) > 0);
+        CHECK_EQ(ev.n[EV_PET_GEN], 3);
+        /* cada ciclo completo cambia de etapa (n-1) veces, más las del ciclo en curso */
+        CHECK_EQ(ev.n[EV_PET_STAGE], 3 * (pet_stage_count((PetKind)kind) - 1) + pet_stage(&gs.pet));
+        CHECK_EQ(ev.n[EV_PET_CHOSEN], 1);
+        CHECK(garden_ok(&gs));
+    }
+    /* Cronometrado: el ciclo dura exactamente LLV_PET_CYCLE_TICKS ticks. */
+    GameState gs;
+    state_init(&gs, 1, t_autumn());
+    pet_choose(&gs, PET_PIEDRA);
+    for (int k = 0; k < LLV_PET_CYCLE_TICKS - 1; k++)
+        pet_tick(&gs);
+    CHECK_EQ(gs.pet.gen, 1);
+    pet_tick(&gs);
+    CHECK_EQ(gs.pet.gen, 2);
+    CHECK_EQ(gs.pet.age, 0);
+}
+
+static void test_pet_stage_events(void)
+{
+    GameState gs;
+    state_init(&gs, 6, t_autumn());
+    pet_choose(&gs, PET_HONGO);
+    int64_t t = t_autumn();
+    for (int d = 0; d < 99; d++) {
+        t += 86400;
+        engine_advance(&gs, t);
+    }
+    /* 6 etapas: 5 cambios en un ciclo (el diario circular puede haber pisado algunos). */
+    CHECK(gs.pet.age >= 90 * 144 || gs.pet.gen > 1);
+    CHECK(pet_stage(&gs.pet) == 5);
+    CHECK_STR(pet_stage_name(&gs.pet), "anciano con barba");
+}
+
+static void test_pet_care_daily_limit(void)
+{
+    GameState gs;
+    state_init(&gs, 4, t_autumn());
+    char msg[96];
+    CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_NO_PET);
+    pet_choose(&gs, PET_HONGO);
+    CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_OK); /* saludar */
+    CHECK(strlen(msg) > 0);
+    CHECK_EQ(gs.actions_used[5], 1);
+    CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_NONE_LEFT);
+    CHECK(has(msg, "Mañana"));
+    CHECK_EQ(gs.actions_used[5], 1);
+    engine_advance(&gs, t_autumn() + 86400);
+    CHECK_EQ(gs.actions_used[5], 0);
+    CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_OK);
+}
+
+static void test_pet_likes_and_offering(void)
+{
+    /* Al hongo le encanta la humedad (Nube); la lombriz le da igual. */
+    CHECK_EQ(pet_like(PET_HONGO, ITEM_NUBE), 2);
+    CHECK_EQ(pet_like(PET_HONGO, ITEM_LOMBRIZ), 0);
+    CHECK_EQ(pet_like(PET_COMPOSTERA, ITEM_LOMBRIZ), 2);
+    CHECK(pet_like(PET_SEMILLA, ITEM_ALPISTE) < 0);
+    int hap[2];
+    for (int round = 0; round < 2; round++) {
+        GameState gs;
+        state_init(&gs, 4, t_autumn());
+        pet_choose(&gs, PET_HONGO);
+        gs.pet.happy = 50;
+        gs.bag_count = 0;
+        memset(gs.bag, 0, sizeof(gs.bag));
+        state_bag_add(&gs, ITEM_SEMILLA);
+        state_bag_add(&gs, round == 0 ? ITEM_NUBE : ITEM_LOMBRIZ);
+        gs.prepared = round == 0 ? ITEM_NUBE : ITEM_LOMBRIZ;
+        char msg[96];
+        CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_OK);
+        /* El objeto ofrecido se gasta y el preparado se limpia. */
+        CHECK_EQ(gs.bag_count, 1);
+        CHECK_EQ(gs.bag[0], ITEM_SEMILLA);
+        CHECK_EQ(gs.prepared, ITEM_NONE);
+        CHECK(has(msg, round == 0 ? "encanta" : "igual"));
+        hap[round] = gs.pet.happy;
+    }
+    CHECK(hap[0] > hap[1]);
+    /* Un preparado que ya no está en la bolsa no se inventa: se saluda sin gastar nada. */
+    GameState gs;
+    state_init(&gs, 4, t_autumn());
+    pet_choose(&gs, PET_PIEDRA);
+    gs.prepared = ITEM_DESEO;
+    int bag = gs.bag_count;
+    char msg[96];
+    CHECK_EQ(pet_care(&gs, 5, msg, sizeof(msg)), CARE_OK);
+    CHECK_EQ(gs.bag_count, bag);
+    CHECK_EQ(gs.prepared, ITEM_NONE);
+}
+
+static void test_pet_rarities(void)
+{
+    /* Hongo: una palabra a la semana, ni una más. */
+    GameState gs;
+    state_init(&gs, 8, t_autumn());
+    pet_choose(&gs, PET_HONGO);
+    int64_t t = t_autumn();
+    EvCount ev = {0};
+    for (int d = 0; d < 28; d++) {
+        t += 86400;
+        engine_advance(&gs, t);
+        ev_update(&ev, &gs);
+    }
+    CHECK_EQ(ev.n[EV_PET_WORD], 4);
+    /* Sus esporas hacen nacer hongos en el Jardín cuando es adulto (conexión entre mundos). */
+    state_init(&gs, 9, t_autumn());
+    pet_choose(&gs, PET_HONGO);
+    gs.pet.age = 5 * LLV_PET_CYCLE_TICKS / 6 + 10; /* anciano */
+    ent_clear(&gs);
+    t = t_autumn();
+    EvCount sp = {0};
+    for (int d = 0; d < 20; d++) {
+        t += 86400;
+        engine_advance(&gs, t);
+        ev_update(&sp, &gs);
+    }
+    CHECK(sp.n[EV_PET_SPORES] >= 2);
+    CHECK(gs.collection & (1u << COLL_HONGO));
+    /* Un hongo pequeño todavía no esporula. */
+    state_init(&gs, 9, t_autumn());
+    pet_choose(&gs, PET_HONGO);
+    t = t_autumn();
+    EvCount young = {0};
+    for (int d = 0; d < 10; d++) {
+        t += 86400;
+        engine_advance(&gs, t);
+        ev_update(&young, &gs);
+    }
+    CHECK_EQ(young.n[EV_PET_SPORES], 0);
+    /* La semilla regala Semillas a veces (35 %). */
+    int gifts = 0;
+    for (int i = 0; i < 300; i++) {
+        state_init(&gs, 1000 + (uint64_t)i, t_autumn());
+        pet_choose(&gs, PET_SEMILLA);
+        gs.bag_count = 0;
+        memset(gs.bag, 0, sizeof(gs.bag));
+        char msg[96];
+        pet_care(&gs, 5, msg, sizeof(msg));
+        gifts += gs.bag_count;
+    }
+    CHECK(gifts >= 70 && gifts <= 140);
+    /* La compostera se come las manzanas podridas y da una lombriz para la bolsa. */
+    state_init(&gs, 12, t_autumn());
+    pet_choose(&gs, PET_COMPOSTERA);
+    ent_clear(&gs);
+    gs.bag_count = 0;
+    memset(gs.bag, 0, sizeof(gs.bag));
+    gs.pet.task_left = 3;
+    ent_put(&gs, SP_MANZANA, 1, 12, 5000);
+    for (int k = 0; k < 6; k++)
+        pet_tick(&gs);
+    CHECK_EQ(garden_count_sp(&gs, SP_MANZANA, ST_ANY), 0);
+    CHECK_EQ(gs.bag_count, 1);
+    CHECK_EQ(gs.bag[0], ITEM_LOMBRIZ);
+    CHECK_EQ(count_ev(&gs, EV_PET_COMPOST), 1);
+}
+
+/* ---------- guardado de la fase 2 ---------- */
+
+static void test_save_roundtrip_phase2(void)
+{
+    GameState gs, back;
+    state_init(&gs, 0xC0FFEE, t_autumn());
+    pet_choose(&gs, PET_SEMILLA);
+    Rng r;
+    rng_seed(&r, 9, 9);
+    int64_t t = t_autumn();
+    for (int d = 0; d < 9; d++) {
+        fill_bag(&gs, &r);
+        gs.actions_used[1] = 0;
+        garden_act(&gs, 1, NULL, NULL, NULL);
+        t += 86400 / 2;
+        engine_advance(&gs, t);
+    }
+    gs.prepared = gs.bag_count ? gs.bag[0] : ITEM_NONE;
+    gs.weather = W_RAIN;
+    gs.weather_left = 33;
+    gs.sky = SKY_STAR;
+    gs.sky_left = 4;
+    gs.collection = 0x8A55;
+    gs.pet.happy = 201;
+    gs.pet.thought = 3;
+    gs.pet.word_left = 777;
+    gs.pet.task_left = 66;
+    CHECK(garden_count(&gs) > 4);
+    uint8_t buf[LLV_SAVE_MAX];
+    size_t n = ser(&gs, buf);
+    CHECK_EQ(state_deserialize(&back, buf, n), 0);
+    CHECK(same_state(&gs, &back));
+    CHECK(memcmp(gs.ents, back.ents, sizeof(gs.ents)) == 0);
+    CHECK(back.weather == W_RAIN && back.weather_left == 33 && back.sky == SKY_STAR && back.sky_left == 4);
+    CHECK_EQ(back.collection, 0x8A55);
+    CHECK(back.pet.kind == PET_SEMILLA && back.pet.happy == 201 && back.pet.thought == 3);
+    CHECK(back.pet.word_left == 777 && back.pet.task_left == 66 && back.pet.age == gs.pet.age);
+    CHECK_EQ(back.diary_total, gs.diary_total);
+    CHECK_EQ(back.prepared, gs.prepared);
+    /* El cargado sigue la misma vida que el original. */
+    engine_advance(&gs, t + 5 * 86400);
+    engine_advance(&back, t + 5 * 86400);
+    CHECK(same_state(&gs, &back));
+}
+
+static void put_le(uint8_t *buf, size_t *pos, uint64_t v, int n)
+{
+    for (int i = 0; i < n; i++)
+        buf[(*pos)++] = (uint8_t)(v >> (8 * i));
+}
+
+/* Guardado v1, tal y como lo escribía la fase 0 (sin jardín, colección ni mascota). */
+static size_t build_v1_save(uint8_t *buf)
+{
+    size_t p = 0;
+    put_le(buf, &p, 0x31564C4Cu, 4);
+    put_le(buf, &p, 1, 2);
+    put_le(buf, &p, 0, 2);
+    put_le(buf, &p, 1234, 8);  /* seed */
+    put_le(buf, &p, 55, 8);    /* rng.state */
+    put_le(buf, &p, 77, 8);    /* rng.inc */
+    put_le(buf, &p, t_autumn() / 600, 8);
+    put_le(buf, &p, 1000, 8);  /* day_key */
+    put_le(buf, &p, t_autumn(), 8);
+    put_le(buf, &p, 2, 1);     /* bag_count */
+    put_le(buf, &p, 0, 1);     /* prepared */
+    put_le(buf, &p, 30, 2);    /* refill_left */
+    put_le(buf, &p, 0, 1);     /* current_world */
+    put_le(buf, &p, 0, 1);     /* reloj_style */
+    put_le(buf, &p, 1, 4);
+    put_le(buf, &p, 1, 4);
+    put_le(buf, &p, 0, 1);     /* diary_head */
+    put_le(buf, &p, 0, 1);     /* diary_count */
+    for (int i = 0; i < 5; i++)
+        put_le(buf, &p, i < 2 ? i + 1 : 0, 1);
+    for (int i = 0; i < 6; i++)
+        put_le(buf, &p, 0, 1);
+    for (int i = 0; i < 64; i++) {
+        put_le(buf, &p, 0, 8);
+        put_le(buf, &p, 0, 2);
+    }
+    size_t payload = p - 8;
+    buf[6] = (uint8_t)payload;
+    buf[7] = (uint8_t)(payload >> 8);
+    put_le(buf, &p, state_crc32(buf, p), 4);
+    return p;
+}
+
+static void test_save_rejects_old_version(void)
+{
+    uint8_t buf[LLV_SAVE_MAX];
+    size_t n = build_v1_save(buf);
+    CHECK(n > 700 && n < LLV_SAVE_MAX);
+    GameState out;
+    state_init(&out, 5, t_autumn());
+    out.looks_total = 4242;
+    CHECK(state_deserialize(&out, buf, n) != 0); /* se rechaza sin romperse... */
+    CHECK_EQ(out.looks_total, 4242);             /* ...y no toca el destino */
+    /* Un v2 con la versión cambiada a 1 tampoco entra. */
+    GameState gs;
+    state_init(&gs, 5, t_autumn());
+    uint8_t cur[LLV_SAVE_MAX];
+    size_t m = ser(&gs, cur);
+    CHECK_EQ(state_deserialize(&out, cur, m), 0);
+    cur[4] = 1;
+    fix_crc(cur, m);
+    CHECK(state_deserialize(&out, cur, m) != 0);
+    /* Tras rechazar el viejo, el arranque normal crea un universo nuevo y funciona. */
+    static Engine e;
+    GameState loaded;
+    if (state_deserialize(&loaded, buf, n) != 0)
+        engine_init(&e, 9, t_autumn(), 1000);
+    CHECK(!e.asleep && garden_ok(&e.gs));
+}
+
+static void test_save_rejects_bad_garden(void)
+{
+    GameState gs, out;
+    state_init(&gs, 5, t_autumn());
+    uint8_t buf[LLV_SAVE_MAX];
+    size_t n;
+    /* Dos entidades en la misma casilla. */
+    GameState evil = gs;
+    ent_clear(&evil);
+    ent_put(&evil, SP_FLOR, 1, 5, 10);
+    ent_put(&evil, SP_FLOR, 1, 5, 10);
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    /* Especie, etapa y casilla fuera de rango. */
+    evil = gs;
+    evil.ents[0].sp = SP_COUNT;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    evil = gs;
+    evil.ents[0].st = GARDEN_STAGES;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    evil = gs;
+    evil.ents[0].cell = LLV_GARDEN_CELLS;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    /* Mascota inválida. */
+    evil = gs;
+    evil.pet.kind = PET_COUNT;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    evil = gs;
+    evil.weather = 9;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+    evil = gs;
+    evil.prepared = ITEM_COUNT;
+    n = ser(&evil, buf);
+    CHECK(state_deserialize(&out, buf, n) != 0);
+}
+
+/* ---------- el Cobertizo y el Jardín por gestos ---------- */
+
+static void test_engine_cobertizo_flow(void)
+{
+    static Engine e;
+    uint32_t ms = 1000;
+    int64_t now = time_from_civil(2026, 10, 22, 12, 0, 0);
+    engine_init(&e, 4, now, ms);
+    RawInput none = {0, false};
+    for (int i = 0; i < 40; i++)
+        engine_frame(&e, none, now, ms += 33);
+    e.gs.current_world = 5;
+    CHECK_EQ(e.gs.pet.kind, PET_NONE);
+    /* Primera vez: toque cicla, mantener confirma. */
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK_EQ(e.gs.pet.kind, PET_NONE);
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK_EQ(e.gs.pet.kind, PET_PIEDRA); /* hongo -> semilla -> piedra */
+    CHECK(has(e.toast, "PIEDRA"));
+    CHECK(cobertizo_on_pet(&e.gs));
+    /* Cuidarla: una vez al día. */
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK_EQ(e.gs.actions_used[5], 1);
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK(has(e.toast, "Mañana"));
+    CHECK_EQ(e.gs.actions_used[5], 1);
+    /* Respirar juntos: no hay límite y no toca el estado del universo. */
+    GameState before = e.gs;
+    gesture(&e, BTN_A, now, &ms, true, 80); /* empieza */
+    CHECK(cobertizo_breathing());
+    for (int k = 0; k < 6; k++) {
+        gesture(&e, BTN_A, now, &ms, true, 3000); /* inhala (una pulsación larga) */
+        CHECK(cobertizo_breathing());
+    }
+    CHECK(same_state(&before, &e.gs));
+    gesture(&e, BTN_A, now, &ms, true, 80); /* sale */
+    CHECK(!cobertizo_breathing());
+    CHECK(!cobertizo_on_pet(&e.gs));
+    /* Preparar el objeto bajo el cursor (bolsa) y que el Jardín lo use. */
+    e.gs.bag_count = 0;
+    memset(e.gs.bag, 0, sizeof(e.gs.bag));
+    state_bag_add(&e.gs, ITEM_NUBE);
+    state_bag_add(&e.gs, ITEM_ALPISTE);
+    state_bag_add(&e.gs, ITEM_SEMILLA);
+    cobertizo_ui_reset();
+    gesture(&e, BTN_A, now, &ms, true, 80); /* cursor al Alpiste */
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK_EQ(e.gs.prepared, ITEM_ALPISTE);
+    CHECK(has(e.toast, "Alpiste"));
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100); /* otra vez: lo quita */
+    CHECK_EQ(e.gs.prepared, ITEM_NONE);
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK_EQ(e.gs.prepared, ITEM_ALPISTE);
+    gesture(&e, BTN_B, now, &ms, true, 80); /* a las 6 en punto: Reloj */
+    CHECK_EQ(e.gs.current_world, 0);
+    gesture(&e, BTN_B, now, &ms, true, 80);
+    CHECK_EQ(e.gs.current_world, 1);
+    gesture(&e, BTN_A, now, &ms, true, 80);
+    CHECK(has(e.toast, "Preparado: Alpiste"));
+    CHECK_EQ(e.gs.prepared, ITEM_NONE);
+    CHECK_EQ(e.gs.bag_count, 2);
+    CHECK_EQ(garden_count_sp(&e.gs, SP_PAJARO, 1), 1);
+    CHECK(garden_ok(&e.gs));
+}
+
+static void test_engine_lupa(void)
+{
+    static Engine e;
+    uint32_t ms = 1000;
+    int64_t now = time_from_civil(2026, 10, 22, 12, 0, 0);
+    jardin_ui_reset();
+    engine_init(&e, 4, now, ms);
+    RawInput none = {0, false};
+    for (int i = 0; i < 40; i++)
+        engine_frame(&e, none, now, ms += 33);
+    e.gs.current_world = 1;
+    ent_clear(&e.gs);
+    ent_put(&e.gs, SP_MANZANA, 1, 8, 30);
+    ent_put(&e.gs, SP_RANA, 0, 20, 30);
+    GameState before = e.gs;
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100); /* lupa: sin coste */
+    CHECK_EQ(e.gs.actions_used[1], 0);
+    CHECK_EQ(e.gs.bag_count, before.bag_count);
+    CHECK(memcmp(e.gs.ents, before.ents, sizeof(before.ents)) == 0);
+    CHECK(e.gs.collection & (1u << COLL_MANZANA)); /* mirar de cerca descubre */
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK(e.gs.collection & (1u << COLL_RANA));
+    /* Jardín vacío: lo dice con gracia. */
+    ent_clear(&e.gs);
+    ms += 6000;
+    gesture(&e, BTN_A, now, &ms, true, LLV_HOLD_MS + 100);
+    CHECK(has(e.toast, "nada que mirar"));
+}
+
+static void test_render_all_worlds(void)
+{
+    /* Todos los mundos se pintan sin salirse del framebuffer en cualquier estado, estación
+     * y hora (el AddressSanitizer vigila los accesos). */
+    static Engine e;
+    uint32_t ms = 1000;
+    RawInput none = {0, false};
+    for (int season = 0; season < 4; season++)
+        for (int hour = 0; hour < 24; hour += 3) {
+            int64_t now = time_from_civil(2026, 1 + season * 3, 20, hour, 15, 0);
+            engine_init(&e, 40 + (uint64_t)season, now, ms);
+            for (int pk = PET_NONE; pk < PET_COUNT; pk++) {
+                if (pk != PET_NONE && e.gs.pet.kind == PET_NONE)
+                    pet_choose(&e.gs, (PetKind)pk);
+                else if (pk != PET_NONE) {
+                    e.gs.pet.kind = (uint8_t)pk;
+                    e.gs.pet.age = (uint16_t)(pk * 3000);
+                }
+                for (int w = 0; w < LLV_WORLD_COUNT; w++) {
+                    e.gs.current_world = (uint8_t)w;
+                    e.gs.weather = (uint8_t)(w % 4);
+                    e.gs.sky = (uint8_t)(w % 3);
+                    FrameOut o = engine_frame(&e, none, now, ms += 100);
+                    CHECK(o.screen_on);
+                }
+            }
+        }
+}
+
+
 int main(void)
 {
     struct { const char *name; TestFn fn; } tests[] = {
@@ -650,6 +2003,40 @@ int main(void)
         {"diario: buffer circular", test_diary_circular},
         {"reloj: hora en palabras", test_reloj_words},
         {"motor: gestos y sueno", test_engine_gestures},
+        /* fase 2 */
+        {"jardin: tablas de datos coherentes", test_tables},
+        {"estado: tamano fijo < 4 KB", test_state_size},
+        {"jardin: estado inicial", test_garden_init},
+        {"jardin: determinismo vivo vs catch-up", test_garden_determinism_live_vs_catchup},
+        {"jardin: determinismo con acciones intercaladas", test_garden_determinism_with_actions},
+        {"motor: determinismo con gestos y suenos", test_engine_determinism_gestures},
+        {"jardin: nunca pasa de 32 (1200 dias)", test_garden_never_overflows},
+        {"jardin: uso normal, 400 dias, esta vivo", test_garden_realistic_week_is_alive},
+        {"jardin: lleno no nace nada", test_garden_full_spawns_nothing},
+        {"jardin: topes por especie", test_species_caps},
+        {"jardin: 2 acciones al dia y reinicio a las 05:00", test_garden_action_limit},
+        {"jardin: mensajes del motor (descansa, vacia)", test_engine_garden_messages},
+        {"bolsa: objeto preparado se usa y se consume", test_prepared_item},
+        {"jardin: efecto de cada objeto", test_item_effects},
+        {"jardin: manzana podrida -> brote/hongo/nada", test_rotten_apple_chain_statistics},
+        {"jardin: tiempos de la cadena de la manzana", test_apple_chain_timing},
+        {"jardin: el viento tira la fruta", test_wind_drops_fruit},
+        {"jardin: pajaro come manzana y deja semilla", test_bird_eats_apple_and_leaves_seed},
+        {"jardin: lluvia acelera, charco -> rana", test_rain_speeds_growth},
+        {"jardin: estaciones", test_seasons},
+        {"coleccion: descubrimientos", test_collection},
+        {"mascota: elegir y ficha solemne", test_pet_choose_and_ficha},
+        {"mascota: nunca muere, ciclo y generaciones", test_pet_never_dies_and_generations},
+        {"mascota: etapas", test_pet_stage_events},
+        {"mascota: un cuidado al dia", test_pet_care_daily_limit},
+        {"mascota: gustos y objeto ofrecido", test_pet_likes_and_offering},
+        {"mascota: rarezas de cada una", test_pet_rarities},
+        {"guardado v2: ida y vuelta con todo", test_save_roundtrip_phase2},
+        {"guardado: rechaza el de la fase 0", test_save_rejects_old_version},
+        {"guardado: rechaza jardin corrupto", test_save_rejects_bad_garden},
+        {"cobertizo: elegir, cuidar, respirar, preparar", test_engine_cobertizo_flow},
+        {"jardin: lupa sin coste", test_engine_lupa},
+        {"render: todos los mundos y estados", test_render_all_worlds},
     };
     int n = (int)(sizeof(tests) / sizeof(tests[0])), ok = 0;
     for (int i = 0; i < n; i++)
