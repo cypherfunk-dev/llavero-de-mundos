@@ -6,6 +6,8 @@
 #include <string.h>
 
 #include "../../core/engine.h"
+#include "../../core/garden.h"
+#include "../../core/pet.h"
 #include "../../core/timeutil.h"
 #include "../../util/imgout.h"
 
@@ -22,7 +24,50 @@ typedef struct {
     const char *dir;
     Framebuffer grabbed[MAX_GRAB];
     int grab_count;
+    /* Estadísticas de la partida (solo observan el diario: no tocan el estado). */
+    uint32_t ev_seen, ev_lost;
+    uint32_t ev_hist[EV_KIND_COUNT];
+    uint32_t items_used[ITEM_COUNT];
+    uint32_t samples, ent_sum, ent_max;
+    uint32_t sp_sum[SP_COUNT];
+    uint32_t sp_max[SP_COUNT];
 } Sim;
+
+/* Cuenta lo nuevo del diario. Si se acumulan más de 64 eventos entre dos miradas, los
+ * que se pisaron se cuentan aparte (ev_lost). */
+static void track(Sim *s)
+{
+    const GameState *g = &s->e.gs;
+    uint32_t fresh = g->diary_total - s->ev_seen;
+    if (fresh == 0)
+        return;
+    uint32_t n = fresh > g->diary_count ? g->diary_count : fresh;
+    s->ev_lost += fresh - n;
+    for (uint32_t i = n; i-- > 0;) {
+        const DiaryEntry *d = state_diary_get(g, (int)i);
+        s->ev_hist[d->kind]++;
+        if (d->kind == EV_ITEM_USED && d->a < ITEM_COUNT)
+            s->items_used[d->a]++;
+    }
+    s->ev_seen = g->diary_total;
+}
+
+/* Foto del jardín en este momento, para las medias de la semana. */
+static void sample(Sim *s)
+{
+    const GameState *g = &s->e.gs;
+    int n = garden_count(g);
+    s->samples++;
+    s->ent_sum += (uint32_t)n;
+    if ((uint32_t)n > s->ent_max)
+        s->ent_max = (uint32_t)n;
+    for (int sp = 1; sp < SP_COUNT; sp++) {
+        uint32_t c = (uint32_t)garden_count_sp(g, (uint8_t)sp, ST_ANY);
+        s->sp_sum[sp] += c;
+        if (c > s->sp_max[sp])
+            s->sp_max[sp] = c;
+    }
+}
 
 static void frame(Sim *s, uint32_t dt, uint8_t buttons, bool shake)
 {
@@ -32,6 +77,7 @@ static void frame(Sim *s, uint32_t dt, uint8_t buttons, bool shake)
     s->sub_ms %= 1000;
     RawInput in = {buttons, shake};
     s->out = engine_frame(&s->e, in, s->now, s->ms);
+    track(s);
 }
 
 static void idle(Sim *s, uint32_t total_ms)
@@ -96,6 +142,153 @@ static void set_style(Sim *s, int style)
     for (int guard = 0; s->e.gs.reloj_style != style && guard < 8; guard++)
         tap(s, BTN_A);
     idle(s, 1500); /* que se apague la etiqueta del estilo */
+}
+
+static int bits(unsigned v)
+{
+    int n = 0;
+    for (; v; v >>= 1)
+        n += (int)(v & 1u);
+    return n;
+}
+
+/* Elige la mascota (1 hongo, 2 semilla, 3 piedra, 4 compostera) como lo haría una persona. */
+static void choose_pet(Sim *s, int kind)
+{
+    goto_world(s, 5);
+    if (s->e.gs.pet.kind != PET_NONE)
+        return;
+    cobertizo_ui_reset();
+    for (int k = PET_HONGO; k < kind; k++)
+        tap(s, BTN_A);
+    hold(s, BTN_A);
+    idle(s, 600);
+}
+
+static void goto_pet(Sim *s)
+{
+    goto_world(s, 5);
+    if (s->e.gs.pet.kind == PET_NONE)
+        choose_pet(s, PET_HONGO);
+    cobertizo_ui_reset();
+    for (int guard = 0; guard < 8 && !cobertizo_on_pet(&s->e.gs); guard++)
+        tap(s, BTN_A);
+}
+
+/* Una mirada del día, como las haría alguien normal. */
+static void look(Sim *s, int which)
+{
+    wake_if_needed(s);
+    switch (which) {
+    case 0: /* mañana: jardín, una acción y un vistazo con la lupa */
+        goto_world(s, 1);
+        idle(s, 2500);
+        tap(s, BTN_A);
+        idle(s, 3500);
+        hold(s, BTN_A);
+        idle(s, 1500);
+        break;
+    case 1: /* mediodía: ve cómo va, saluda a la mascota y respira con ella */
+        goto_world(s, 1);
+        idle(s, 3000);
+        goto_pet(s);
+        hold(s, BTN_A); /* cuidado del día */
+        idle(s, 1500);
+        tap(s, BTN_A);  /* empieza a respirar */
+        press(s, BTN_A, 3600);
+        idle(s, 3600);
+        tap(s, BTN_A);  /* sale */
+        break;
+    case 2: /* tarde: prepara un objeto y lo usa en el jardín */
+        goto_world(s, 5);
+        cobertizo_ui_reset();
+        hold(s, BTN_A);
+        idle(s, 1500);
+        goto_world(s, 1);
+        idle(s, 1500);
+        tap(s, BTN_A);
+        idle(s, 3500);
+        break;
+    default: /* noche: la hora y un último vistazo */
+        goto_world(s, 0);
+        idle(s, 2000);
+        goto_world(s, 1);
+        idle(s, 3000);
+        break;
+    }
+    sample(s);
+}
+
+/* N días naturales empezando por hoy (las miradas que ya pasaron hoy se saltan). */
+static void routine(Sim *s, int days)
+{
+    static const int LOOK_AT[4][2] = {{7, 30}, {12, 30}, {18, 30}, {22, 30}};
+    int64_t midnight = time_floor_div(s->now, LLV_SECONDS_PER_DAY) * LLV_SECONDS_PER_DAY;
+    for (int d = 0; d < days; d++) {
+        for (int l = 0; l < 4; l++) {
+            int64_t at = midnight + (int64_t)d * LLV_SECONDS_PER_DAY + LOOK_AT[l][0] * 3600 + LOOK_AT[l][1] * 60;
+            if (at < s->now)
+                continue;
+            advance(s, at - s->now);
+            look(s, l);
+        }
+        const GameState *g = &s->e.gs;
+        CivilTime c = time_to_civil(s->now);
+        printf("# %04d-%02d-%02d: %2d cosas, bolsa %d, mascota día %d, colección %d/16\n", c.year, c.month, c.day,
+               garden_count(g), g->bag_count, g->pet.kind ? pet_day(&g->pet) : 0, bits(g->collection));
+    }
+}
+
+static const char *const SP_LABEL[SP_COUNT] = {
+    "", "semilla", "brote", "árbol joven", "árbol", "manzana", "hongo", "flor", "abeja",
+    "pájaro", "lombriz", "charco", "rana", "piedra", "hojas", "nieve",
+};
+
+static const char *const EV_LABEL[EV_KIND_COUNT] = {
+    [EV_BAG_REFILL] = "objeto a la bolsa", [EV_BAG_FULL_LOST] = "bolsa llena (perdido)",
+    [EV_NEW_DAY] = "días nuevos", [EV_WAKE] = "despertares", [EV_ITEM_USED] = "objetos usados",
+    [EV_APPLE_FALL] = "cae manzana", [EV_APPLE_ROT] = "se pudre manzana", [EV_SPROUT] = "nace brote",
+    [EV_TREE_ADULT] = "árbol joven -> árbol", [EV_MUSHROOM] = "sale hongo", [EV_BLOOM] = "flor rara",
+    [EV_BIRD] = "llega pájaro", [EV_BIRD_SEED] = "pájaro deja semilla", [EV_BEE] = "abeja",
+    [EV_WORM] = "sale lombriz", [EV_FROG] = "rana", [EV_RAIN] = "lluvia", [EV_WIND] = "viento (con fruta)",
+    [EV_SNOW] = "nieve", [EV_RAINBOW] = "arcoíris", [EV_STAR] = "estrella fugaz", [EV_COMPOST] = "abono",
+    [EV_DISCOVER] = "descubrimientos", [EV_PET_CHOSEN] = "mascota elegida", [EV_PET_STAGE] = "mascota crece",
+    [EV_PET_GEN] = "mascota: generación", [EV_PET_CARE] = "cuidados", [EV_PET_WORD] = "palabra del hongo",
+    [EV_PET_SPORES] = "esporas", [EV_PET_COMPOST] = "compostera come",
+};
+
+static void stats(const Sim *s)
+{
+    const GameState *g = &s->e.gs;
+    printf("== estado del jardín ==\n");
+    printf("cosas ahora: %d/%d |", garden_count(g), LLV_GARDEN_MAX);
+    for (int sp = 1; sp < SP_COUNT; sp++) {
+        int c = garden_count_sp(g, (uint8_t)sp, ST_ANY);
+        if (c)
+            printf(" %s %d", SP_LABEL[sp], c);
+    }
+    printf("\nclima %d, cielo %d, colección %d/16 (0x%04x)\n", g->weather, g->sky,
+           bits(g->collection), g->collection);
+    if (g->pet.kind) {
+        printf("mascota: %s gen %u día %d etapa '%s' humor %s\n", pet_name((PetKind)g->pet.kind), g->pet.gen,
+               pet_day(&g->pet), pet_stage_name(&g->pet), pet_mood(&g->pet));
+    }
+    if (s->samples) {
+        printf("== medias en %u miradas: %.1f cosas (máx %u) ==\n", s->samples,
+               (double)s->ent_sum / s->samples, s->ent_max);
+        for (int sp = 1; sp < SP_COUNT; sp++)
+            printf("  %-12s media %.2f  máx %u\n", SP_LABEL[sp], (double)s->sp_sum[sp] / s->samples,
+                   s->sp_max[sp]);
+    }
+    printf("== eventos del diario ==\n");
+    for (int k = 1; k < EV_KIND_COUNT; k++)
+        if (s->ev_hist[k])
+            printf("  %-24s %u\n", EV_LABEL[k], s->ev_hist[k]);
+    if (s->ev_lost)
+        printf("  (eventos pisados por el diario circular: %u)\n", s->ev_lost);
+    printf("== objetos usados ==\n");
+    for (int k = 1; k < ITEM_COUNT; k++)
+        printf("  %-8s %u\n", state_item_name((ItemKind)k), s->items_used[k]);
 }
 
 /* ---------- parseo ---------- */
@@ -208,6 +401,9 @@ static void usage(const char *p)
            "  style N        Reloj en el estilo 0-4 (0 celeste 1 palabras 2 binario 3 cuántico 4 cuenta)\n"
            "  world N        va al mundo 0-5 con B\n"
            "  tap a|b  hold a|b  ab  shake  sleep  wake  wait MS\n"
+           "  pet N          elige mascota (1 hongo, 2 semilla, 3 piedra, 4 compostera)\n"
+           "  routine DIAS   uso normal: 4 miradas al día (jardín, mascota, objetos) durante DIAS días\n"
+           "  stats          estado del jardín, medias, eventos y objetos usados\n"
            "  info           imprime un resumen del estado\n",
            p);
 }
@@ -299,6 +495,12 @@ int main(int argc, char **argv)
             wake_if_needed(&s);
         } else if (!strcmp(c, "wait") && m1) {
             idle(&s, (uint32_t)atoi(argv[++i]));
+        } else if (!strcmp(c, "pet") && m1) {
+            choose_pet(&s, atoi(argv[++i]));
+        } else if (!strcmp(c, "routine") && m1) {
+            routine(&s, atoi(argv[++i]));
+        } else if (!strcmp(c, "stats")) {
+            stats(&s);
         } else if (!strcmp(c, "info")) {
             info(&s);
         } else {
