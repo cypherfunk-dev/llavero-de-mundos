@@ -670,9 +670,9 @@ static void pet_hongo(Framebuffer *fb, int cx, int by, int stage, uint32_t ms, i
     int rx = sc(CAP_RX[stage], inf), ry = sc(CAP_RY[stage], inf);
     int bob = stage >= 4 ? (int)((ms / 900) & 1) : 0; /* respira muy despacio */
     int x0 = cx - sw / 2;
-    gfx_rect(fb, x0 - 1, by - sh - bob, sw + 2, sh + bob, C_GREY);
-    gfx_rect(fb, x0, by - sh - bob, sw, sh + bob - 1, C_SNOW);
-    gfx_rect(fb, x0 + sw - 1, by - sh - bob, 1, sh + bob - 1, C_GREY_L);
+    gfx_rect(fb, x0 - 1, by - sh - bob, sw + 2, sh + bob, C_GROUND_D);
+    gfx_rect(fb, x0, by - sh - bob, sw, sh + bob - 1, C_SKY_D4);
+    gfx_rect(fb, x0 + sw - 1, by - sh - bob, 1, sh + bob - 1, C_LEAF);
     int cy = by - sh - ry + 2 - bob;
     blobc(fb, cx, cy, rx, ry, C_ORANGE, C_GROUND_D, C_LEAF);
     if (stage >= 3) {
@@ -686,15 +686,18 @@ static void pet_hongo(Framebuffer *fb, int cx, int by, int stage, uint32_t ms, i
     }
     if (stage >= 3)
         face(fb, cx, by - sh + 1 - bob, stage >= 4 ? 2 : 1, ms, joy);
-    else
-        gfx_rect(fb, cx - 1, by - 2, 1, 1, C_DARK), gfx_rect(fb, cx + 1, by - 2, 1, 1, C_DARK);
+    else {
+        gfx_pset(fb, cx - 1, by - 2, C_DARK);
+        gfx_pset(fb, cx + 1, by - 2, C_DARK);
+    }
     if (stage == 5) {
         /* barba: guedejas blancas que cuelgan de la cara */
         for (int r = 0; r < 5; r++) {
-            int bw = sw + 2 - r * 2;
+            int bw = sw + 3 - r * 2;
             if (bw > 0) {
                 gfx_rect(fb, cx - bw / 2, by - sh + 5 + r - bob, bw, 1, C_WHITE);
-                gfx_pset(fb, cx - bw / 2, by - sh + 5 + r - bob, C_GREY_L);
+                gfx_pset(fb, cx - bw / 2, by - sh + 5 + r - bob, C_GREY);
+                gfx_pset(fb, cx - bw / 2 + bw - 1, by - sh + 5 + r - bob, C_GREY_L);
             }
         }
         gfx_rect(fb, cx - 4, by - sh - 1 - bob, 3, 1, C_GREY_L); /* cejas */
@@ -787,7 +790,7 @@ static void pet_piedra(Framebuffer *fb, int cx, int by, int stage, uint32_t ms, 
             gfx_pset(fb, px + 1, py, C_SUN);
         }
     }
-    face(fb, cx, cy - 1, 3, ms, joy > 150 ? 0 : 0); /* la piedra jamás sonríe: solo parpadea */
+    face(fb, cx, cy - 1, 3, ms, 0); /* la piedra jamás sonríe: solo parpadea (y se sonroja) */
     if (joy > 150) {
         gfx_pset(fb, cx - 5, cy + 2, C_PINK);
         gfx_pset(fb, cx + 5, cy + 2, C_PINK);
@@ -820,6 +823,8 @@ static void pet_compost(Framebuffer *fb, int cx, int by, int worms, uint32_t ms,
         int up = (int)(((ms / 260) + (uint32_t)k * 3) % 6);
         up = up > 3 ? 6 - up : up; /* asoma y se esconde */
         gfx_rect(fb, wx, by - bh - 2 - up, 1, up + 2, k & 1 ? C_MAGENTA : C_ITEM_LOMBRIZ);
+        if (up > 1)
+            gfx_pset(fb, wx + (k & 1 ? -1 : 1), by - bh - 2 - up, C_ITEM_LOMBRIZ); /* la cabecita se dobla */
     }
     face(fb, cx, by - bh + 5, 3, ms, joy);
     if ((ms / 500) & 1)

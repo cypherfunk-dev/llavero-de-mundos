@@ -123,8 +123,8 @@ int pet_ficha(const Pet *p, char lines[][24], int max)
     int n = 0;
     char h[32];
 #define LINE(...) do { if (n < max) snprintf(lines[n++], 24, __VA_ARGS__); } while (0)
-    LINE("%s · Gen %u", pet_name((PetKind)p->kind), (unsigned)p->gen);
-    LINE("Día %d", pet_day(p));
+    LINE("%s", pet_name((PetKind)p->kind));
+    LINE("Gen %u · Día %d", (unsigned)p->gen, pet_day(p));
     switch (p->kind) {
     case PET_HONGO:
     case PET_SEMILLA:

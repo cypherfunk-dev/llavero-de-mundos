@@ -270,7 +270,8 @@ static void scene(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx)
     gfx_rect(fb, wx - 2, wy - 2, ww + 4, wh + 4, C_WOOD_L);
     gfx_frame(fb, wx - 2, wy - 2, ww + 4, wh + 4, C_GROUND_D);
     window_view(fb, wx, wy, ww, wh, gs, ctx, season, m);
-    gfx_rect(fb, wx + ww / 2, wy, 1, wh, C_WOOD_L);
+    gfx_rect(fb, wx + 16, wy, 1, wh, C_WOOD_L); /* travesaños a los lados: la mascota va en el panel central */
+    gfx_rect(fb, wx + ww - 17, wy, 1, wh, C_WOOD_L);
     gfx_rect(fb, wx, wy + 13, ww, 1, C_WOOD_L);
     /* alféizar */
     gfx_rect(fb, wx - 8, SILL_Y, ww + 16, 4, C_WOOD_L);
@@ -350,7 +351,7 @@ static void panel_bag(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx,
         /* sobre la colección: va nombrando lo que hay en la estantería */
         int total = collected(gs);
         if (total == 0)
-            snprintf(buf, sizeof(buf), "Nada todavía");
+            snprintf(buf, sizeof(buf), "Colección vacía");
         else {
             int want = (int)(ctx->ms / 1400) % total, seen = 0, slot = 0;
             for (int i = 0; i < COLL_COUNT; i++)
@@ -362,16 +363,16 @@ static void panel_bag(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx,
                 }
             snprintf(buf, sizeof(buf), "%s", state_coll_name((CollSlot)slot));
         }
-    } else if (show_cursor && sel < gs->bag_count) {
+    } else if (show_cursor && sel < gs->bag_count && ctx->ms % 4000 >= 2400) {
+        /* sobre un objeto: alterna su nombre con la cuenta atrás (siempre a la vista) */
         snprintf(buf, sizeof(buf), "%s%s", state_item_name((ItemKind)gs->bag[sel]),
                  gs->prepared == gs->bag[sel] ? " (preparado)" : "");
     } else {
         countdown(buf, sizeof(buf), gs);
     }
-    gfx_text_center(fb, PANEL_TOP + 22, buf, show_cursor && (sel >= gs->bag_count || sel < gs->bag_count) ? C_BLUE_TXT : C_GREY);
-    if (show_cursor && sel < gs->bag_count && gs->prepared != gs->bag[sel]) {
-        /* nada más: el texto ya dice el objeto */
-    }
+    bool is_name = show_cursor && (on_collection(gs) || (sel < gs->bag_count && ctx->ms % 4000 >= 2400));
+    /* azul: lo seleccionado; gris: la cuenta atrás de la bolsa */
+    gfx_text_center(fb, PANEL_TOP + 22, buf, is_name ? C_BLUE_TXT : C_GREY);
 }
 
 static void panel_collection(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx, bool show_cursor)
@@ -385,9 +386,6 @@ static void panel_collection(Framebuffer *fb, const GameState *gs, const WorldCt
     }
     if (show_cursor && on_collection(gs) && ((ctx->ms / 300) & 1) == 0)
         bracket(fb, 4, 89, 112, 30, C_RED);
-    char buf[24];
-    snprintf(buf, sizeof(buf), "%d/%d", collected(gs), COLL_COUNT);
-    gfx_text(fb, 117 - 6 - gfx_text_width(buf), 88, buf, C_GREY);
 }
 
 static void panel_choose(Framebuffer *fb, const WorldCtx *ctx)
@@ -433,7 +431,7 @@ static void panel_ficha(Framebuffer *fb, const GameState *gs, const WorldCtx *ct
     gfx_rect(fb, 100, PANEL_TOP + 6, 3, 3, page_b ? C_GREY_L : C_BLUE_TXT);
     gfx_rect(fb, 105, PANEL_TOP + 6, 3, 3, page_b ? C_BLUE_TXT : C_GREY_L);
     bool cared = gs->actions_used[ctx->index] >= LLV_PET_ACTIONS;
-    gfx_text(fb, 9, PANEL_TOP + 53, page_b ? (cared ? "Mañana, más." : "Mantén A: cuidar") : "A: respirar", C_GREY);
+    gfx_text(fb, 9, PANEL_TOP + 53, page_b ? (cared ? "Mañana, más." : "Mantén: cuidar") : "A: respirar", C_GREY);
 }
 
 static void panel_breath(Framebuffer *fb, const WorldCtx *ctx)

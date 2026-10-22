@@ -31,7 +31,7 @@
 #define LLV_WIND_NATURAL_PCT 30                /* con viento natural, prob. por tick de que caiga la fruta 🧪 */
 #define LLV_RAINBOW_PCT 18                     /* prob. de arcoíris al escampar de día 🧪 */
 #define LLV_RAINBOW_TICKS (3 * LLV_TICKS_PER_HOUR)
-#define LLV_STAR_PERMILLE 3                    /* estrella fugaz por tick de noche 🧪 */
+#define LLV_STAR_PERMILLE 2                    /* estrella fugaz por tick de noche 🧪 */
 
 /* Mascota (spec §4.7). */
 #define LLV_PET_ACTIONS 1                      /* cuidados al día 🧪 */

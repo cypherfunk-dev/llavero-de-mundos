@@ -132,10 +132,10 @@ static void build_luts(void)
     for (int i = 0; i < C_COUNT; i++)
         NIGHT_LUT.map[i] = DIM_LUT.map[i] = (uint8_t)i;
     static const uint8_t N[][2] = {
-        {C_GREEN_L, C_GREEN_D}, {C_GREEN, C_HILL_FAR_N}, {C_GREEN_D, C_HILL_N1},
-        {C_GRASS_A, C_HILL_FAR_N}, {C_GRASS_A_D, C_HILL_N1}, {C_GROUND, C_HILL_FAR_N},
+        {C_GREEN_L, C_SKY_N4}, {C_GREEN, C_SKY_N3}, {C_GREEN_D, C_SKY_N2},
+        {C_GRASS_A, C_SKY_N3}, {C_GRASS_A_D, C_SKY_N2}, {C_GROUND, C_HILL_FAR_N},
         {C_GROUND_D, C_HILL_N2}, {C_WOOD_L, C_GREY_D}, {C_LEAF, C_GROUND_D}, {C_ORANGE, C_ROOF},
-        {C_RED, C_ROOF}, {C_SNOW, C_GREY}, {C_SNOW_D, C_GREY_D}, {C_WHITE, C_GREY_L},
+        {C_RED, C_ROOF}, {C_SNOW, C_GREY}, {C_SNOW_D, C_SKY_N4}, {C_WHITE, C_GREY_L},
         {C_PINK, C_VIOLET}, {C_SKY_D0, C_SKY_N3}, {C_SKY_D1, C_SKY_N4}, {C_SKY_D2, C_GREY},
         {C_SKY_D3, C_GREY_L}, {C_BIRD, C_SKY_N4}, {C_BIRD_L, C_GREY}, {C_STONE, C_GREY_D},
         {C_STONE_L, C_GREY}, {C_SUN, C_MOON}, {C_ITEM_ALPISTE, C_GREY}, {C_MAGENTA, C_VIOLET},
@@ -154,12 +154,14 @@ static void build_luts(void)
     luts_ready = true;
 }
 
-/* checker: solo cambia la mitad de los píxeles (dithering para los crepúsculos y el nublado). */
-static void remap(Framebuffer *fb, int y0, int y1, const Lut *lut, bool checker)
+/* level 1..3: tramado ordenado 2x2 (25 %, 50 %, 75 % de los píxeles) para los crepúsculos y
+ * el nublado; 4: todos. Así el paso de día a noche se ve con dithering y no de golpe. */
+static void remap(Framebuffer *fb, int y0, int y1, const Lut *lut, int level)
 {
+    static const uint8_t BAYER[4] = {0, 2, 3, 1};
     for (int y = y0; y < y1; y++)
         for (int x = 0; x < LLV_W; x++) {
-            if (checker && ((x + y) & 1))
+            if (level < 4 && BAYER[(y & 1) * 2 + (x & 1)] >= level)
                 continue;
             uint8_t *p = &fb->px[y * LLV_W + x];
             *p = lut->map[*p];
@@ -172,19 +174,43 @@ static void ground(Framebuffer *fb, Season season)
     static const Color TUFT[4] = {C_GREEN, C_GREEN_D, C_GRASS_A_D, C_SNOW_D};
     static const Color SPECK[4] = {C_PINK, C_SUN, C_LEAF, C_WHITE};
     gfx_rect(fb, 0, LLV_HUD_H, LLV_W, FIELD_BOTTOM - LLV_HUD_H, BASE[season]);
+    /* césped segado a franjas: puntitos más oscuros en las columnas pares */
+    for (int y = GY0; y < FIELD_BOTTOM; y++)
+        for (int x = GX0; x < GX0 + LLV_GARDEN_COLS * CELL; x++)
+            if (((x - GX0) / CELL) % 2 == 0 && ((x + y * 2) & 3) == 0)
+                gfx_pset(fb, x, y, TUFT[season]);
     for (int by = 1; by < 14; by++)
         for (int bx = 0; bx < 15; bx++) {
             uint32_t h = hash((uint32_t)(bx * 131 + by * 7 + 5));
             int x = bx * 8 + (int)(h % 6), y = by * 8 + 4 + (int)((h >> 6) % 6);
             if (y < LLV_HUD_H + 2 || y >= FIELD_BOTTOM - 2)
                 continue;
-            if ((h >> 12) % 10 < 7) {
+            switch ((h >> 12) % 10) {
+            case 0: case 1: case 2: case 3: case 4: /* mata pequeña */
                 gfx_pset(fb, x, y, TUFT[season]);
                 gfx_pset(fb, x + 2, y, TUFT[season]);
                 gfx_pset(fb, x + 1, y + 1, TUFT[season]);
+                break;
+            case 5: case 6: /* mata grande */
+                gfx_rect(fb, x, y, 1, 2, TUFT[season]);
+                gfx_rect(fb, x + 2, y - 1, 1, 3, TUFT[season]);
+                gfx_rect(fb, x + 4, y, 1, 2, TUFT[season]);
+                gfx_rect(fb, x, y + 2, 5, 1, TUFT[season]);
+                break;
+            case 7: /* piedrecitas */
+                gfx_pset(fb, x, y, season == SEASON_WINTER ? C_GREY_L : C_STONE);
+                gfx_pset(fb, x + 1, y, season == SEASON_WINTER ? C_GREY_L : C_STONE_L);
+                gfx_pset(fb, x + 1, y + 1, C_GREY);
+                break;
+            default: /* florecillas sueltas */
+                gfx_pset(fb, x, y, SPECK[season]);
+                if (season != SEASON_WINTER && season != SEASON_AUTUMN) {
+                    gfx_pset(fb, x - 1, y + 1, SPECK[season]);
+                    gfx_pset(fb, x + 1, y + 1, SPECK[season]);
+                    gfx_pset(fb, x, y + 1, C_SUN_CORE);
+                }
+                break;
             }
-            if ((h >> 18) % 10 < 4)
-                gfx_pset(fb, (x + 5) % LLV_W, y + 2, SPECK[season]);
         }
     /* la valla del fondo */
     for (int x = 0; x < LLV_W; x += 15) {
@@ -349,7 +375,7 @@ static void strip(Framebuffer *fb, const GameState *gs, Season season, bool day)
         what = "Estrella fugaz";
     else
         what = gs->weather == W_RAIN ? "Lluvia" : gs->weather == W_WIND ? "Viento"
-             : gs->weather == W_SNOW ? "Nevando" : day ? "Despejado" : "Noche clara";
+             : gs->weather == W_SNOW ? "Nieve" : day ? "Sol" : "Noche";
     gfx_text(fb, 15, FIELD_BOTTOM + 1, what, C_WHITE);
     const char *s = SEASON_NAME[season];
     if (15 + gfx_text_width(what) + 8 + gfx_text_width(s) < LLV_W - 2)
@@ -426,14 +452,19 @@ static void jardin_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
 
     /* Luz del día: noche cerrada, crepúsculo a medias y nublado en lluvia. */
     if (!day) {
-        bool twilight = (m < LLV_SUNRISE_MIN && LLV_SUNRISE_MIN - m < 40) ||
-                        (m >= LLV_SUNSET_MIN && m - LLV_SUNSET_MIN < 40);
-        remap(fb, LLV_HUD_H, FIELD_BOTTOM, &NIGHT_LUT, twilight);
-    } else if (m - LLV_SUNRISE_MIN < 30 || LLV_SUNSET_MIN - m < 30) {
-        remap(fb, LLV_HUD_H, FIELD_BOTTOM, &DIM_LUT, true); /* sol bajo */
+        /* En los 40 min tras ponerse (o antes de salir) el sol, la luz baja por tramos con
+         * dithering: primero el día gris, luego la noche entra a medias. */
+        int away = m >= LLV_SUNSET_MIN ? m - LLV_SUNSET_MIN : LLV_SUNRISE_MIN - m;
+        if (away >= 40) {
+            remap(fb, LLV_HUD_H, FIELD_BOTTOM, &NIGHT_LUT, 4);
+        } else {
+            remap(fb, LLV_HUD_H, FIELD_BOTTOM, &DIM_LUT, away < 13 ? 2 : 4);
+            if (away >= 26)
+                remap(fb, LLV_HUD_H, FIELD_BOTTOM, &NIGHT_LUT, 2);
+        }
     }
     if (gs->weather == W_RAIN)
-        remap(fb, LLV_HUD_H, FIELD_BOTTOM, &DIM_LUT, true);
+        remap(fb, LLV_HUD_H, FIELD_BOTTOM, &DIM_LUT, 2);
 
     ambient(fb, season, day, gs->weather, ctx->ms);
     if (gs->sky == SKY_RAINBOW && day && gs->weather != W_RAIN)

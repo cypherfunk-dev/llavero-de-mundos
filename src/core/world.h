@@ -35,10 +35,12 @@ typedef struct {
     void (*on_hold)(GameState *gs, const WorldCtx *ctx); /* puede ser NULL */
 } World;
 
-/* true si 'until' aún no ha llegado; tolera que el contador de ms dé la vuelta (~49 días). */
+/* true si 'until' aún no ha llegado; tolera que el contador de ms dé la vuelta (~49 días).
+ * until == 0 significa "nada pendiente": sin esto, pasadas ~25 días de ms (la mitad del
+ * rango) un temporizador a cero parecería estar siempre en marcha. */
 static inline bool ms_pending(uint32_t ms, uint32_t until)
 {
-    return (int32_t)(until - ms) > 0;
+    return until != 0 && (int32_t)(until - ms) > 0;
 }
 
 extern const World world_reloj;

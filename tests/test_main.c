@@ -429,6 +429,35 @@ static void test_input(void)
     CHECK_EQ(input_update(&in, BTN_A, 0xFFFFFFF0u + LLV_HOLD_MS), GEST_A_HOLD);
 }
 
+static void test_ms_pending(void)
+{
+    CHECK(ms_pending(1000, 2000));
+    CHECK(!ms_pending(2000, 2000));
+    CHECK(!ms_pending(3000, 2000));
+    /* El contador de ms da la vuelta cada ~49 días. */
+    CHECK(ms_pending(0xFFFFFF00u, 0x100u));
+    CHECK(!ms_pending(0x200u, 0x100u));
+    /* Un temporizador a cero es "nada pendiente" a cualquier hora: con el contador en la
+     * segunda mitad del rango (> 24,8 días encendido) antes parecía siempre en marcha. */
+    CHECK(!ms_pending(5000, 0));
+    CHECK(!ms_pending(0x90000000u, 0));
+    CHECK(!ms_pending(0xFFFFFFF0u, 0));
+    /* Y en el motor: tras 30 días de ms no aparecen ni el diario ni mensajes fantasma. */
+    static Engine e;
+    uint32_t ms = 0x9C000000u; /* ~30 días */
+    int64_t now = time_from_civil(2026, 10, 22, 12, 0, 0);
+    engine_init(&e, 1, now, ms);
+    engine_sleep(&e, now);
+    RawInput shake = {0, true}, none = {0, false};
+    engine_frame(&e, shake, now + 100, ms += 100);
+    for (int i = 0; i < 60; i++)
+        engine_frame(&e, none, now + 100, ms += 33);
+    e.gs.current_world = 1;
+    engine_frame(&e, none, now + 100, ms += 33);
+    CHECK(e.diary_until_ms == 0 && e.toast_until_ms == 0);
+    CHECK(!ms_pending(ms, e.diary_until_ms) && !ms_pending(ms, e.toast_until_ms));
+}
+
 /* ---------- rng ---------- */
 
 static void test_rng(void)
@@ -1485,8 +1514,8 @@ static void test_pet_choose_and_ficha(void)
     char lines[10][24];
     int n = pet_ficha(&gs.pet, lines, 10);
     CHECK(n >= 8);
-    CHECK_STR(lines[0], "HONGO · Gen 1");
-    CHECK_STR(lines[1], "Día 43");
+    CHECK_STR(lines[0], "HONGO");
+    CHECK_STR(lines[1], "Gen 1 · Día 43");
     CHECK_STR(lines[2], "Altura: 7 px");
     CHECK_STR(lines[3], "(+0,1 hoy)");
     CHECK_STR(lines[4], "Humor:");
@@ -1997,6 +2026,7 @@ int main(void)
         {"timeutil: estaciones", test_time_seasons},
         {"timeutil: fases lunares", test_time_moon},
         {"input: gestos", test_input},
+        {"temporizadores: ms_pending y vuelta del contador", test_ms_pending},
         {"rng: PCG32", test_rng},
         {"bolsa: recarga, tope y perdidas", test_bag},
         {"bolsa: objeto preparado", test_bag_prepared},

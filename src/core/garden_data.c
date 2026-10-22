@@ -57,7 +57,7 @@ const GardenRule GARDEN_RULES[SP_COUNT][GARDEN_STAGES] = {
     },
     [SP_FLOR] = {
         [0] = {"Capullo", "florece", H(24), RF_WET | RF_SLOW_WINTER,
-               {TO(88, SP_FLOR, 1), TO_EV(12, SP_FLOR, 3, EV_BLOOM)}},
+               {TO(92, SP_FLOR, 1), TO_EV(8, SP_FLOR, 3, EV_BLOOM)}},
         [1] = {"Flor", "se marchita", H(72), RF_SLOW_WINTER, {TO(100, SP_FLOR, 2)}},
         [2] = {"Flor marchita", "deja semilla", H(24), 0,
                {TO_SPAWN(35, SP_NONE, 0, SP_SEMILLA, 0, 1, 0), GONE(65)}},
@@ -78,7 +78,7 @@ const GardenRule GARDEN_RULES[SP_COUNT][GARDEN_STAGES] = {
     },
     /* lluvia -> charco -> rana (rara) */
     [SP_CHARCO] = {
-        [0] = {"Charco", "se seca", H(4), 0, {TO_EV(12, SP_RANA, 0, EV_FROG), GONE(88)}},
+        [0] = {"Charco", "se seca", H(4), 0, {TO_EV(15, SP_RANA, 0, EV_FROG), GONE(85)}},
     },
     [SP_RANA] = {
         [0] = {"Rana", "salta lejos", H(30), 0, {GONE(100)}},
@@ -105,9 +105,9 @@ const GardenReact GARDEN_REACT[] = {
 /* Actores que buscan algo en el jardín. */
 const GardenInteract GARDEN_INTERACT[] = {
     /* el pájaro se come la manzana y deja una semilla en otro sitio */
-    {SP_PAJARO, 0, SP_MANZANA, 0, 18, SP_NONE, 0,
+    {SP_PAJARO, 0, SP_MANZANA, 0, 14, SP_NONE, 0,
      {.pct = 100, .sp2 = SP_SEMILLA, .ev = EV_BIRD_SEED, .item = ITEM_SEMILLA}},
-    {SP_PAJARO, 0, SP_MANZANA, 1, 22, SP_NONE, 0,
+    {SP_PAJARO, 0, SP_MANZANA, 1, 18, SP_NONE, 0,
      {.pct = 100, .sp2 = SP_SEMILLA, .ev = EV_BIRD_SEED, .item = ITEM_SEMILLA}},
     /* la lombriz convierte la manzana podrida en abono: las plantas crecen antes */
     {SP_LOMBRIZ, 0, SP_MANZANA, 1, 15, SP_NONE, 0,
@@ -123,10 +123,10 @@ const GardenSpawn GARDEN_SPAWN[] = {
     {SP_ABEJA, 0, 14, SW_DAY | SW_DRY, SEAS(SEASON_SPRING) | SEAS(SEASON_SUMMER) | SEAS(SEASON_AUTUMN),
      SP_FLOR, 1, EV_BEE, 0},
     {SP_PAJARO, 0, 6, SW_DAY | SW_DRY, SEAS_ALL, SP_NONE, 0, EV_BIRD, 0},
-    {SP_PAJARO, 0, 30, SW_DAY | SW_DRY, SEAS_ALL, SP_MANZANA, ST_ANY, EV_BIRD, 0},
+    {SP_PAJARO, 0, 10, SW_DAY | SW_DRY, SEAS_ALL, SP_MANZANA, ST_ANY, EV_BIRD, 0},
     {SP_CHARCO, 0, 120, SW_RAIN, SEAS_ALL, SP_NONE, 0, 0, 0},
     {SP_LOMBRIZ, 0, 45, SW_RAIN, SEAS_ALL, SP_NONE, 0, EV_WORM, ITEM_LOMBRIZ},
-    {SP_HONGO, 0, 8, SW_RAIN, SEAS(SEASON_SPRING) | SEAS(SEASON_AUTUMN), SP_NONE, 0, EV_MUSHROOM, 0},
+    {SP_HONGO, 0, 14, SW_RAIN, SEAS(SEASON_SPRING) | SEAS(SEASON_AUTUMN), SP_NONE, 0, EV_MUSHROOM, 0},
     {SP_HOJAS, 0, 20, SW_DAY, SEAS(SEASON_AUTUMN), SP_ARBOL, ST_ANY, 0, 0},
     {SP_NIEVE, 0, 70, SW_SNOW, SEAS(SEASON_WINTER), SP_NONE, 0, 0, 0},
     {SP_SEMILLA, 0, 80, SW_WIND, SEAS_ALL, SP_NONE, 0, 0, 0},
@@ -153,6 +153,6 @@ const GardenDiscover GARDEN_DISCOVER[] = {
 };
 
 const uint8_t GARDEN_WEATHER[4][2] = {
-    [SEASON_SPRING] = {5, 6}, [SEASON_SUMMER] = {3, 5},
-    [SEASON_AUTUMN] = {6, 7}, [SEASON_WINTER] = {5, 5},
+    [SEASON_SPRING] = {3, 6}, [SEASON_SUMMER] = {2, 5},
+    [SEASON_AUTUMN] = {4, 7}, [SEASON_WINTER] = {3, 5},
 };
