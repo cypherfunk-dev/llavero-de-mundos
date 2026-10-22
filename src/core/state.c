@@ -230,7 +230,7 @@ int state_deserialize(GameState *gs, const uint8_t *buf, size_t len)
 
     GameState tmp;
     memset(&tmp, 0, sizeof(tmp));
-#define READ_FIELD(f, n) f = (__typeof__(f))r_bytes(&r, n);
+#define READ_FIELD(f, n) f = r_bytes(&r, n); /* conversión implícita: sin extensiones GNU */
     SAVE_FIELDS(READ_FIELD, &tmp)
 #undef READ_FIELD
     for (int i = 0; i < LLV_BAG_SIZE; i++)

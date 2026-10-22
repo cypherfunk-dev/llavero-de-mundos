@@ -247,7 +247,7 @@ static void style_cuantico(Framebuffer *fb, const CivilTime *c, uint32_t ms)
     gfx_dither(fb, 0, LLV_HUD_H, LLV_W, LLV_H - LLV_HUD_H, C_VIOLET_D, C_DARK);
     uint32_t cycle = ms / 3000, phase = ms % 3000;
     int real = c->hour * 60 + c->minute;
-    char t[6];
+    char t[16];
     int x = (LLV_W - gfx_digits_width("00:00", 4)) / 2;
     if (phase < 2000) {
         Rng r;
@@ -296,7 +296,7 @@ static void style_cuenta(Framebuffer *fb, const CivilTime *c, int64_t now, uint3
     stars(fb, ms, 40);
     moon(fb, 60, 38, 17, now, C_SKY_N3);
 
-    char l1[32], l2[32], l3[32], t[16];
+    char l1[64], l2[64], l3[64], t[48];
     int64_t full = time_until_full_moon(now);
     int64_t since_full = LLV_SYNODIC_SECONDS - full;
     if (full < 12 * 3600 || since_full < 12 * 3600) {

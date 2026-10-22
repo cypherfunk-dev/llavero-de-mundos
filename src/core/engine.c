@@ -154,7 +154,7 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
     int y = 42;
     for (int i = 0; i < gs->diary_count && y < 106; i++) {
         const DiaryEntry *d = state_diary_get(gs, i);
-        char what[24], when[8];
+        char what[24], when[24];
         switch ((EventKind)d->kind) {
         case EV_BAG_REFILL: snprintf(what, sizeof(what), "+1 %s", state_item_name(d->a)); break;
         case EV_BAG_FULL_LOST: snprintf(what, sizeof(what), "%s: no cupo", state_item_name(d->a)); break;
