@@ -151,7 +151,7 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
         gfx_text_wrap(fb, 8, 44, 104, "Nada todavía. Paciencia.", C_DARK);
         return;
     }
-    int y = 42;
+    int y = 42, shown = 0;
     for (int i = 0; i < gs->diary_count && y < 106; i++) {
         const DiaryEntry *d = state_diary_get(gs, i);
         char what[24], when[24];
@@ -168,7 +168,10 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
         gfx_text(fb, 8, y, what, C_DARK);
         gfx_text(fb, 112 - gfx_text_width(when), y, when, C_GREY);
         y += GFX_LINE_H + 1;
+        shown++;
     }
+    if (shown == 0)
+        gfx_text_wrap(fb, 8, 44, 104, "Nada todavía. Paciencia.", C_DARK);
 }
 
 static void draw_toast(const Engine *e, Framebuffer *fb)

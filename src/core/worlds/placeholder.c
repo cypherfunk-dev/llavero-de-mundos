@@ -41,7 +41,7 @@ static void placeholder_render(const GameState *gs, const WorldCtx *ctx, Framebu
         char next[24];
         int min = gs->refill_left * (LLV_TICK_SECONDS / 60);
         snprintf(next, sizeof(next), "+1 en %dh %02dm", min / 60, min % 60);
-        gfx_text(fb, 16, 105, next, C_GREY);
+        gfx_text(fb, 16, 101, next, C_GREY);
     } else {
         /* Un pequeño "latido" para que se note que el llavero está vivo. */
         int r = 3 + (int)((ctx->ms / 300) % 3);

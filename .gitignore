@@ -1,0 +1,7 @@
+build/
+*.sav
+*.sav.tmp
+capturas/
+llavero-*.png
+shots/
+*.ppm

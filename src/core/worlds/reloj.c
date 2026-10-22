@@ -171,14 +171,14 @@ static void sky_scene(Framebuffer *fb, const CivilTime *c, int64_t now, uint32_t
 
     if (m >= LLV_SUNRISE_MIN && m < LLV_SUNSET_MIN) {
         float f = (float)(m - LLV_SUNRISE_MIN) / (float)(LLV_SUNSET_MIN - LLV_SUNRISE_MIN);
-        int x = 6 + (int)(f * 108), y = 88 - (int)(sinf(PI_F * f) * 62);
+        int x = 6 + (int)(f * 108), y = 90 - (int)(sinf(PI_F * f) * 40); /* el arco queda por debajo de los dígitos */
         gfx_ellipse(fb, x, y, 7, 7, C_SUN);
         gfx_ellipse(fb, x - 1, y - 1, 4, 4, C_SUN_CORE);
     } else {
         int night_len = 1440 - (LLV_SUNSET_MIN - LLV_SUNRISE_MIN);
         int nm = m >= LLV_SUNSET_MIN ? m - LLV_SUNSET_MIN : m + 1440 - LLV_SUNSET_MIN;
         float f = (float)nm / (float)night_len;
-        int x = 6 + (int)(f * 108), y = 88 - (int)(sinf(PI_F * f) * 58);
+        int x = 6 + (int)(f * 108), y = 90 - (int)(sinf(PI_F * f) * 40);
         moon(fb, x, y, 6, now, SKY[p][1]);
     }
     landscape(fb, time_season(c->month, c->day, LLV_SOUTH_HEMISPHERE), p == P_NIGHT);
@@ -342,11 +342,11 @@ static void date_card(Framebuffer *fb, const CivilTime *c, int64_t now)
     snprintf(l2, sizeof(l2), "%d de %s", c->day, MONTH_FULL[c->month - 1]);
     snprintf(l3, sizeof(l3), "%d · %s", c->year,
              SEASON_NAME[time_season(c->month, c->day, LLV_SOUTH_HEMISPHERE)]);
-    gfx_textbox(fb, 8, 30, 104, 52);
-    gfx_text(fb, 14, 36, WDAY_FULL[c->wday], C_BLUE_TXT);
-    gfx_text(fb, 14, 47, l2, C_DARK);
-    gfx_text(fb, 14, 57, l3, C_DARK);
-    gfx_text(fb, 14, 68, MOON_NAME[time_moon_phase(now)], C_GREY);
+    gfx_textbox(fb, 3, 30, 114, 52);
+    gfx_text(fb, 10, 36, WDAY_FULL[c->wday], C_BLUE_TXT);
+    gfx_text(fb, 10, 47, l2, C_DARK);
+    gfx_text(fb, 10, 57, l3, C_DARK);
+    gfx_text(fb, 10, 68, MOON_NAME[time_moon_phase(now)], C_GREY);
 }
 
 /* ---------- interfaz World ---------- */
