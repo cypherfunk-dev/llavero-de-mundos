@@ -1,0 +1,60 @@
+cmake_minimum_required(VERSION 3.16)
+project(llavero_de_mundos C)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(NOT MSVC)
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_library(LLV_MATH m)
+
+# Motor portable: no depende de ninguna plataforma.
+add_library(llv_core STATIC
+  src/core/engine.c src/core/state.c src/core/input.c src/core/gfx.c src/core/font.c
+  src/core/timeutil.c src/core/rng.c
+  src/core/worlds/reloj.c src/core/worlds/placeholder.c)
+target_include_directories(llv_core PUBLIC src/core)
+if(LLV_MATH)
+  target_link_libraries(llv_core PUBLIC ${LLV_MATH})
+endif()
+
+# Salida de imágenes (PNG/PPM) para el simulador y la herramienta headless.
+add_library(llv_util STATIC src/util/imgout.c)
+target_link_libraries(llv_util PUBLIC llv_core)
+
+# Tests (CTest).
+enable_testing()
+add_executable(llv_tests tests/test_main.c)
+target_link_libraries(llv_tests PRIVATE llv_core)
+add_test(NAME llv_tests COMMAND llv_tests)
+
+# Herramienta headless: sin SDL.
+add_executable(llv_headless src/platform/headless/main.c)
+target_link_libraries(llv_headless PRIVATE llv_util)
+
+# Simulador SDL2, solo si hay SDL2.
+find_package(SDL2 QUIET)
+if(NOT SDL2_FOUND)
+  find_package(PkgConfig QUIET)
+  if(PKG_CONFIG_FOUND)
+    pkg_check_modules(SDL2 QUIET IMPORTED_TARGET sdl2)
+  endif()
+endif()
+if(TARGET SDL2::SDL2)
+  set(LLV_SDL_TARGET SDL2::SDL2)
+elseif(TARGET PkgConfig::SDL2)
+  set(LLV_SDL_TARGET PkgConfig::SDL2)
+endif()
+if(LLV_SDL_TARGET)
+  add_executable(llv_sim src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c)
+  target_link_libraries(llv_sim PRIVATE llv_util ${LLV_SDL_TARGET})
+  message(STATUS "SDL2 encontrado: se construye llv_sim")
+else()
+  message(STATUS "SDL2 no encontrado: se omite llv_sim")
+endif()

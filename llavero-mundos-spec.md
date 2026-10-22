@@ -6,7 +6,7 @@
 > absurdamente lenta. Lo miras un momento, algo ha cambiado, alguien te dice
 > algo, y de vez en cuando pasa algo que no esperabas.
 
-- **Estado:** idea en beta, planificación. Aún sin código.
+- **Estado:** fase 0 hecha en el simulador (motor, HAL, SDL2, Reloj y tests de determinismo); ver `README.md`.
 - **Alcance:** primera unidad para mí; después unas pocas para regalar. No es un
   producto comercial (por ahora).
 - **Vibe:** juguete noventero × solarpunk × cuántico × indie hacker.
