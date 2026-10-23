@@ -234,3 +234,17 @@
 [no:plantas, abuela, picaro]  Pues tus plantas estarán como los maridos: aguantando sin quejarse.
 [no:te, abuela, picaro]  Café, dices. Y luego te preguntas por qué se te acelera el corazón.
 [si:sol, abuela, picaro]  Ya se te nota el color. Estás más guapo que un melocotón en agosto.
+
+# ---- otras maneras de preguntar lo de siempre (para que no suene a disco rayado) ----
+[pregunta:agua, abuela]  ¿Ya te has tomado un vasito de agua?
+[pregunta:agua, abuela]  Dime la verdad: ¿hoy has bebido agua?
+[pregunta:dormir, abuela]  ¿Has descansado esta noche?
+[pregunta:dormir, abuela]  ¿Qué tal has dormido, mi vida?
+[pregunta:pausa, abuela]  ¿Has respirado hondo hoy, aunque sea una vez?
+[pregunta:pausa, abuela]  ¿Te has dado una pausita hoy?
+[pregunta:pantalla, abuela]  ¿Has dejado el móvil quieto un rato hoy?
+[pregunta:pantalla, abuela]  ¿Has mirado hoy algo que no fuera una pantalla?
+[pregunta:sol, abuela]  ¿Te ha dado el sol hoy?
+[pregunta:sol, abuela]  ¿Has salido a la calle a que te dé la luz?
+[pregunta:llamar, abuela]  ¿Has hablado con alguien querido esta semana?
+[pregunta:llamar, abuela]  ¿Has llamado a alguien que te quiera, esta semana?

@@ -801,6 +801,7 @@ static void usage(const char *p)
            "  talk           toca A en la Sala (da pie) y espera a que se escriba la frase\n"
            "  yes | no       contesta la pregunta pendiente (toque / mantener A)\n"
            "  bell           mantiene A: toca el timbre\n"
+           "  drain          gasta las conversaciones del día y pide otra (sale el relleno);  pool  frases posibles ahora\n"
            "  code           teclea el código secreto B B A A B A B A\n"
            "  visitor NOMBRE gotica|gamer|boomer|gato|none: pone un visitante en la Sala\n"
            "  surprise TIPO  glitch|arranque|ausencia [mundo]|invasion|cuarta|calendario|rebeldia|colapso|gato|moneda\n"
@@ -923,6 +924,35 @@ int main(int argc, char **argv)
             talk_a(&s);
         } else if (!strcmp(c, "yes") || !strcmp(c, "no")) {
             answer(&s, c[0] == 'y');
+        } else if (!strcmp(c, "drain")) {
+            /* Gasta las conversaciones del día (contestando que sí) y pide una más: sale el relleno. */
+            wake_if_needed(&s);
+            for (int guard = 0; guard < 30; guard++) {
+                const Sala *sa = &s.e.gs.sala;
+                if (sa->stage == DLG_ASK)
+                    answer(&s, true);
+                else if (sa->stage == DLG_SAY && sa->scene > 0)
+                    talk_a(&s);
+                else if (s.e.gs.actions_used[WORLD_SALA] < LLV_SALA_ACTIONS)
+                    talk_a(&s);
+                else
+                    break;
+            }
+            talk_a(&s);
+        } else if (!strcmp(c, "pool")) {
+            /* Cuántas frases de charla podrían salir ahora mismo, por personaje (para juzgar la variedad). */
+            PhraseEnv env = sim_env(&s);
+            PhraseCtx pc;
+            phrase_ctx_make(&pc, &s.e.gs, &env);
+            printf("charlas posibles ahora:");
+            for (int spk = 1; spk < SPK_COUNT; spk++) {
+                PhraseQuery pq = {PK_BIT(PK_CHARLA), SPK_BIT(spk), -1, 0, false, 0, false};
+                int n = phrase_eligible(&pc, &pq);
+                if (n)
+                    printf(" %s %d", speaker_short(spk), n);
+            }
+            PhraseQuery cq = {PK_BIT(PK_COMENTARIO), pc.present, -1, 0, false, 0, false};
+            printf(" | comentarios %d\n", phrase_eligible(&pc, &cq));
         } else if (!strcmp(c, "bell")) {
             bell(&s);
         } else if (!strcmp(c, "code")) {

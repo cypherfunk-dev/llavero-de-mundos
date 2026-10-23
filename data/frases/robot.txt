@@ -225,3 +225,17 @@
 [sinacciones, robot, picaro]  He agotado mi cuota de palabras. Y, probablemente, la de tus orejas.
 [no:alma, robot, picaro]  Bien. Entonces lo que siento es solo un fallo de refrigeración.
 [si:llamar, robot, picaro]  Genial. Esa persona acaba de recibir tu llamada y un buen motivo para contarlo a medio barrio.
+
+# ---- otras maneras de preguntar lo de siempre ----
+[pregunta:agua, robot]  Consulta de hidratación: ¿has bebido agua hoy?
+[pregunta:agua, robot]  Pregunta de mantenimiento: ¿agua hoy?
+[pregunta:dormir, robot]  Pregunta de rendimiento: ¿has dormido lo suficiente?
+[pregunta:dormir, robot]  Informe de sueño: ¿has descansado esta noche?
+[pregunta:pausa, robot]  Consulta: ¿hoy has parado un minuto a respirar?
+[pregunta:pausa, robot]  ¿Has respirado a conciencia en las últimas horas?
+[pregunta:pantalla, robot]  ¿Has estado un rato lejos de las pantallas? Yo no puedo.
+[pregunta:pantalla, robot]  Pregunta de rutina: ¿has soltado el móvil hoy?
+[pregunta:sol, robot]  Consulta de luz solar: ¿has salido hoy?
+[pregunta:sol, robot]  ¿Has recibido luz solar directa hoy?
+[pregunta:llamar, robot]  Consulta social: ¿has contactado con un ser querido esta semana?
+[pregunta:llamar, robot]  ¿Has hablado con alguien que te quiera esta semana?

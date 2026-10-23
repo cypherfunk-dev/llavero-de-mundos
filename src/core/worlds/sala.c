@@ -80,6 +80,10 @@ static void restart_typing(const GameState *gs, const WorldCtx *ctx)
 
 static void sala_tap(GameState *gs, const WorldCtx *ctx)
 {
+    if (ctx->absent) { /* "Salí. Vuelvo en 5 min.": no hay nadie con quien hablar */
+        world_toast(ctx, "No hay nadie. Espera un poco.", 1800);
+        return;
+    }
     if (typing(gs, ctx->ms)) { /* primero se termina de leer la frase */
         int total;
         typed_state(gs, ctx->ms, &total);
@@ -93,6 +97,10 @@ static void sala_tap(GameState *gs, const WorldCtx *ctx)
 
 static void sala_hold(GameState *gs, const WorldCtx *ctx)
 {
+    if (ctx->absent) {
+        world_toast(ctx, "El timbre suena a hueco.", 1800);
+        return;
+    }
     if (typing(gs, ctx->ms)) {
         int total;
         typed_state(gs, ctx->ms, &total);
@@ -105,6 +113,8 @@ static void sala_hold(GameState *gs, const WorldCtx *ctx)
 
 static void sala_shake(GameState *gs, const WorldCtx *ctx)
 {
+    if (ctx->absent)
+        return;
     PhraseEnv env = env_of(ctx);
     talk_shake(gs, &env);
     restart_typing(gs, ctx);
