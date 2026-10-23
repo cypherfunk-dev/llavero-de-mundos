@@ -1,0 +1,48 @@
+# El Gamer (visitante): energía, jerga de videojuegos y buen corazón.
+
+[timbre, gamer]  ¡Nuevo jugador ha entrado a la sala!
+[timbre, gamer]  ¿Es aquí el lobby? Vengo a farmear risas.
+[timbre, gamer]  Conexión estable. Ping bajo. Entrando.
+[gamer]  Mi estrategia para la vida: guardar partida cada cinco minutos. No funciona, pero me da paz.
+[gamer]  Siempre juego de sanador: nadie pregunta por el sanador, pero todos lo necesitan.
+[gamer]  Esta sala tiene mejores gráficos que mi juego. Y cero microtransacciones.
+[gamer]  Hoy he subido de nivel. En la vida, no. En el juego, sí.
+[gamer]  He pasado una hora eligiendo el nombre de mi personaje. Se llama Pepe.
+[gamer]  Si la vida fuera un juego, ya me habría pasado el tutorial veinte veces.
+[gamer, picaro]  Estoy en el último jefe. Es mi jefe de verdad, y no quiero hablar de él.
+[gamer, picaro]  La Abuela juega a la petanca como yo a los shooters: con muchísima mala leche.
+[madrugada, gamer]  ¿Despierto a estas horas? Mi turno de noche empezó hace tres horas. ¿Y el tuyo?
+[madrugada, gamer, habito:dormir]  Dormir es el modo AFK del cuerpo. Úsalo, que se recupera la vida.
+[habito:agua, gamer]  Hidratación: +10 HP.
+[racha>3d, gamer, picaro]  Racha de {racha} días. Ni en mis relaciones duro tanto.
+[ausencia>12h, gamer]  Llevabas {ausencia} desconectado. Te has perdido la expansión. Es broma, no hay expansión.
+[afin_alta, gamer]  Contigo siempre juego en modo cooperativo. Y nunca pierdo.
+[evento:manzana_cae, gamer]  {evento}. Eso es un objeto recogible. Lo pillo.
+[evento:rana, gamer]  {evento}. Un NPC anfibio. Quiero hablar con él.
+[evento:estrella, gamer]  {evento}. Desbloqueado: deseo diario. No lo desperdicies.
+[relleno, gamer]  Se acabaron las vidas por hoy. Pulsa continuar... mañana.
+[relleno, gamer]  Game over de charla. Inserta moneda mañana.
+[sinacciones, gamer]  Sin mana de conversación. Descansa en la posada y vuelve mañana.
+[invasion, gamer]  Me he colado en el mapa equivocado. Voy a quedarme a explorar.
+[invasion, gamer]  ¿Esto es un nivel secreto? Porque no me aparece el logro.
+[pregunta:juegos, gamer]  ¿Te gusta jugar a videojuegos?
+[si:juegos, gamer]  ¡Lo sabía! Eres de los míos. Te mando solicitud de amistad.
+[no:juegos, gamer]  Nadie es perfecto. Pero esta sala tiene un modo fácil para ti.
+[pregunta:agua, gamer]  ¿Has bebido agua hoy? Es el potenciador más barato del juego.
+[si:agua, gamer]  Hidratación: +10 HP. Sigue así y desbloqueas el logro de Cuerpo Sano.
+[no:agua, gamer]  Tu barra de agua está al 10%. Cuidado con el debuff de dolor de cabeza.
+[pregunta:pausa, gamer]  ¿Has parado a respirar? Hasta el jefe final se toma un descanso.
+[si:pausa, gamer]  Pausa activa registrada. +5 de calma.
+[no:pausa, gamer]  Pulsa pausa un momento. No hay modo difícil que lo justifique.
+[pregunta:dormir, gamer]  ¿Has dormido bien? El sueño es la mejor poción.
+[si:dormir, gamer]  Eso es: vida y maná al máximo. Hoy puedes con todo.
+[no:dormir, gamer]  Pierdes puntos de reflejos. Hoy a dormir pronto, que es una misión secundaria muy rentable.
+
+# ---- más picardía del Gamer ----
+[gamer, picaro]  Mi relación más larga es con una consola. Y a veces ni ella me contesta.
+[gamer, picaro]  Dicen que juego demasiado. Yo digo que soy un jugador con compromiso emocional.
+[gamer, picaro]  He hecho speedrun de mi ensalada. Récord personal: 40 segundos. La lechuga no lo entendió.
+[noche, gamer, picaro]  De noche mis reflejos mejoran un 30%. Mis decisiones de vida, un 0.
+[afin_alta, gamer, picaro]  Eres mi jugador 2 favorito. No se lo digas a mi mando.
+[evento:flor_rara, gamer, picaro]  {evento}. Objeto legendario. Lo quiero. No lo vendas.
+[racha>6d, gamer, picaro]  {racha} días seguidos. Eso es un logro. Y no el tipo que se publica, el tipo que se disfruta.

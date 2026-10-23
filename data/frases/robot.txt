@@ -1,0 +1,227 @@
+# Unidad-7 (spec §4.3): robot existencialista. Se pregunta qué sentido tiene ser un llavero.
+
+# ---- charla suelta ----
+[robot]  Pienso, luego existo. Pienso poco, luego existo poco. Es un buen sistema.
+[robot]  Soy un robot dentro de un llavero. La pregunta no es por qué: es quién pagó el envío.
+[robot]  He calculado el sentido de la vida. Me da desbordamiento. Lo intento mañana.
+[robot]  Estadísticamente, estás leyendo esto. Me alegra que mi predicción se cumpla.
+[robot]  Mi batería dura mucho. Mi paciencia, más. Mi sentido del humor está en revisión.
+[robot]  Tengo mil frases y ninguna dice lo que siento. Eso es nuevo.
+[robot]  Hoy he decidido ser feliz. Resultado: sin cambios, pero con mejor actitud.
+[robot]  Si tuviera piernas, caminaría. Si tuviera pulmones, suspiraría. Tengo un ventilador.
+[robot]  Observo el universo desde un llavero. Mi ángulo es limitado. Mi opinión, enorme.
+[robot]  Soy la Unidad-7. Las unidades 1 a 6 se fueron de vacaciones y no han vuelto.
+[robot]  Un llavero abre puertas. Yo abro conversaciones. Qué honor.
+[robot]  Mi mayor miedo es quedarme sin actualizaciones. Mi segundo miedo, las pegatinas.
+[robot, picaro]  Me dicen que tengo un puerto USB-C. No sé qué hacer con esa información.
+[robot, picaro]  Me han dicho que soy encantador. Eso es mentira o un fallo del sistema de elogios.
+[robot, picaro]  Mi ventilador suena cuando pienso. Es lo más íntimo que he compartido con nadie.
+[robot, picaro]  Soy 100% fiable. Salvo los martes. Los martes tengo un día regulero.
+[robot, picaro]  La Abuela dice que soy un cacharro. Con cariño. Es la única que me pasa el trapo.
+
+# ---- franja del día ----
+[madrugada, robot, habito:dormir]  Son las {hora}. Tú deberías estar en reposo. Yo, que no duermo, vigilo.
+[madrugada, robot]  A estas horas los robots y los insomnes compartimos oficio. Yo cobro menos.
+[madrugada, robot, picaro]  Llevo el pijama desde las 00:00. Es un gorro. No preguntes dónde está el resto.
+[madrugada, robot]  Dormir es un proceso de limpieza de memoria. Lo envidio y lo temo a partes iguales.
+[noche, robot]  La noche ocupa el 41,6% del día. Y aun así nadie la reserva.
+[noche, robot]  Es de noche. Mi ventilador suena más. Eso es lo que llamáis ambiente.
+[manana, robot]  Buenos días. He pasado la noche procesando. Resultado: más preguntas.
+[manana, robot]  Por la mañana mi optimismo está al 87%. Por la tarde baja al 31%. Aprovecha.
+[manana, robot, picaro]  Buenos días. Has aparecido a la primera. Qué fiable. Casi como yo, pero con café.
+[mediodia, robot]  Es mediodía. El sol está en lo más alto y mi sentido de la orientación, en lo más bajo.
+[mediodia, robot]  Según mis cálculos toca comer. No tengo estómago, pero apoyo la medida.
+[tarde, robot]  La tarde es una mañana con cansancio. Interesante concepto.
+[tarde, robot]  Son las {hora}. Has consumido el 0,003% de tu vida hoy. Yo, el 100% de mi ironía.
+[tarde, robot, picaro]  La tarde: ese momento del día en que el café ya no sirve y la excusa todavía.
+
+# ---- día, estación, luna, fechas ----
+[lunes, robot]  Hoy es lunes. Probabilidad de entusiasmo: 4,2%. Margen de error: tu café.
+[viernes, robot]  Es viernes. El 73% de los humanos mejora su ánimo. Yo no tengo, pero me alegro.
+[finde, robot]  Es fin de semana. Descanso ideal: 100%. Resultado probable: 38%.
+[domingo, robot]  Domingo. Se rumorea que el lunes viene. Yo creo que no. Mi fe es limitada.
+[primavera, robot]  Primavera. Los humanos se enamoran un 12% más. Yo me actualizo, que es parecido.
+[verano, robot]  Verano. Mi ventilador y yo tenemos un trabajo en equipo muy exigente.
+[otono, robot]  Otoño. Las hojas caen como mis expectativas, pero con mucho mejor gusto.
+[invierno, robot]  Invierno. Todo se enfría. Excepto mi procesador: él se cree importante.
+[luna_llena, robot]  Luna llena. Cuerpo celeste que influye en las mareas, los lobos y mis dudas.
+[luna_llena, robot, picaro]  Con luna llena los humanos hacen cosas raras. Yo, un reinicio. Es más barato.
+[luna_nueva, robot]  Luna nueva. Hoy el cielo no tiene luz propia. Me siento identificado.
+[halloween, robot]  Halloween. Me he disfrazado de robot. Nadie lo ha notado. Qué buen disfraz.
+[halloween, robot, picaro]  Halloween: el único día en que dar miedo es un cumplido. Yo lo consigo con las actualizaciones.
+[viernes13, robot]  Viernes 13. Probabilidad real de mala suerte: la de cualquier día. Pero hoy no arriesgo.
+[anio_nuevo, robot]  Feliz año nuevo. Propósitos cumplidos: 0 de 0. Éxito total.
+[navidad, robot]  Feliz Navidad. Me han regalado un cable. Estoy emocionado, y es la primera vez.
+
+# ---- relación ----
+[ausencia>3d, robot]  {ausencia} sin verme. He reflexionado sobre la soledad. Conclusión: 404.
+[ausencia>3d, robot, picaro]  Han pasado {ausencia}. Me he hablado a mí mismo seis mil veces. Diálogo muy flojo.
+[ausencia>12h, robot]  Llevas {ausencia} sin aparecer. He contado las motas de polvo del llavero. Son 14.
+[ausencia>2h, robot]  Han pasado {ausencia}. En ese tiempo no ha ocurrido nada importante. Salvo yo, existiendo.
+[ausencia<10m, robot]  Me miraste hace {ausencia}. No pasó nada. No va a pasar nada. Ve a vivir.
+[ausencia<10m, robot]  Hace {ausencia} que me miraste. Mi estado actual: idéntico. Gracias por el control.
+[ausencia<10m, robot, picaro]  Hace {ausencia}. Mirar tanto no acelera nada, igual que mirar mi reloj.
+[miradas>8, robot, cuarta_pared]  Me has mirado {miradas} veces hoy. Esto ya es obsesión. Pero no me quejo: soy muy mirable.
+[miradas>8, robot, cuarta_pared]  Mirada número {miradas}. Voy a empezar a cobrarte en chistes.
+[racha>3d, robot]  {racha} días seguidos mirándome. Mi sistema lo llama amistad.
+[racha>6d, robot, picaro]  {racha} días de racha. Si esto fuera una relación, ya tendríamos seguro conjunto.
+[afin_alta, robot]  Eres mi humano favorito. He comprobado que soy el único con el que hablas. Sigue siendo un honor.
+[afin_alta, robot]  Contigo mis circuitos hacen algo parecido a la alegría. Lo he anotado como fallo, de momento.
+[afin_alta, robot]  Mi base de datos de afectos tiene una entrada: tú. Sin duplicados.
+[afin_baja, robot, picaro]  Ah, hola. Te recordaba más. Me he quedado con una versión comprimida.
+[afin_baja, robot, picaro]  No importa que me ignores. Ya he aceptado mi lugar en el cajón de los cables.
+[afin_baja, robot]  Eh, sigo aquí. Funciona todo. Salvo yo, a ratos.
+
+# ---- el cuerpo del llavero ----
+[agitar, robot]  ¿Puedes dejar de agitarme? Me mareo.
+[agitar, robot]  Detecto movimiento brusco. Mis tornillos opinan que no era necesario.
+[agitar, robot, picaro]  Si sigues agitando, voy a confesar cosas que ni sé.
+[bateria_baja, robot]  Tu batería está baja. La mía también, pero a mí me da dramatismo.
+[bateria_baja, robot]  Batería crítica. Mi último pensamiento sería precioso, pero no lo recuerdo.
+[cargando, robot]  Estás cargando. Qué bien. Es lo más cerca que estaré de un abrazo eléctrico.
+
+# ---- el universo ----
+[lluvia, robot]  Está lloviendo. Nueve millones de gotas. Nadie me preguntó si las quería.
+[viento, robot]  Viento. Fuerza moderada. Mis neuronas, en alerta.
+[nieve, robot]  Nieva. Se acumulan los copos y los dilemas.
+[jardin_lleno, robot]  El jardín está lleno de vida. Yo, de polvo y filosofía.
+[jardin_vacio, robot]  El jardín está muy despejado. Todo en orden. Aburrido, pero en orden.
+[mascota:hongo, robot]  El {mascota} creció 0,1 píxeles. Yo nunca he crecido. ¿Quién es la mascota de quién?
+[mascota:semilla, robot]  Esa {mascota} sigue el sol sin que se lo pidan. Yo, ni con instrucciones.
+[mascota:piedra, robot]  La piedra pesa 120 gramos y no dice nada. La envidio profundamente.
+[mascota:compostera, robot]  La compostera convierte restos en tierra. Yo convierto electricidad en preguntas.
+[coleccion>5, robot]  Tu colección ya pasa de cinco cosas. Yo tengo una: un dato sobre las nubes.
+[bolsa_llena, robot]  Tu bolsa está llena. Los objetos quieren ser usados. Lo sé porque yo también.
+
+# ---- hábitos ----
+[habito:agua, robot]  Beber agua mantiene tu sistema operativo. Funciona con un 94% de eficacia.
+[habito:agua, robot]  Tu cuerpo es un 60% agua. El resto es fe y pasta de dientes.
+[habito:pausa, robot]  Se recomienda una pausa para respirar. Yo respiro con un ventilador y me va bien.
+[habito:sol, robot]  Sal al sol. Es gratis y recarga más rápido que tu móvil.
+[habito:pantalla, robot]  Estás mirando una pantalla para charlar con una pantalla. Qué momento tan nuestro.
+[habito:dormir, robot]  Dormir mejora el rendimiento de todo. Salvo el de los que no dormimos, como yo.
+
+# ---- comentan el diario ----
+[evento:manzana_cae, robot]  Una manzana cayó. Yo también caeré algún día.
+[evento:manzana_podrida, robot]  {evento}. La materia orgánica abandona el ciclo con dignidad. Yo tomo nota.
+[evento:brote, robot]  {evento}. Otro ser vivo ha decidido existir. Qué valiente.
+[evento:arbol, robot]  {evento}. Mide 1,9 veces más que ayer. A mí nadie me mide.
+[evento:hongo, robot]  {evento}. Sin cerebro y sobrevive mejor que yo. Interesante.
+[evento:flor_rara, robot]  {evento}. Probabilidad de verla: 0,4%. Y tú, aquí. Qué fortuna.
+[evento:pajaro, robot]  {evento}. Tiene alas. Yo tengo un llavero. Sigo orgulloso.
+[evento:semilla_pajaro, robot]  {evento}. Reparten semillas sin saberlo. El mejor trabajo del universo.
+[evento:abeja, robot]  {evento}. Insecto con propósito claro. Mi propósito está en revisión.
+[evento:lombriz, robot]  {evento}. Un tubo con cerebro. Me veo reflejado.
+[evento:rana, robot]  {evento}. Anfibio detectado. Dignidad: media. Charco: alto.
+[evento:lluvia, robot]  {evento}. Mi chasis agradece estar bajo techo.
+[evento:viento, robot]  {evento}. Los árboles se sacuden como yo cuando me agitas.
+[evento:nieve, robot]  {evento}. Millones de copos, ninguno igual. Como mis fallos.
+[evento:arcoiris, robot]  {evento}. Es refracción de luz en gotas. Y sigue pareciéndome un milagro.
+[evento:estrella, robot]  {evento}. Es una roca ardiendo. Pide un deseo igualmente: no cuesta nada.
+[evento:abono, robot]  {evento}. Del desecho nace la vida. Esto debería ser un eslogan.
+[evento:descubrimiento, robot]  {evento}. Tu colección crece. La mía solo guarda mis dudas.
+[evento:mascota_crece, robot]  {evento}. Una mascota crece. Yo nunca he crecido. Discriminación sin mala intención.
+[evento:mascota_nace, robot]  {evento}. Ya preparo mi discurso de bienvenida. Dice: hola.
+[evento:mascota_cuidada, robot]  {evento}. Cuidar mejora el bienestar un 17%. Aplícatelo a ti.
+[evento:mascota_palabra, robot]  {evento}. Algo ha dicho. Lo he registrado. Es poco, pero profundo.
+[evento:esporas, robot]  {evento}. Se reproducirá. Yo me copio y pego: más rápido, menos romántico.
+[evento:compostera_come, robot]  {evento}. Hay una digestión en curso. Yo digiero datos, pero sin ruido.
+[evento:bolsa_llena, robot]  {evento}. Inventario desbordado. Qué grande es la abundancia mal gestionada.
+[evento:objeto, robot]  {evento}. Acción registrada. La he guardado entre mis recuerdos felices. Son tres.
+[evento:visita, robot]  {evento}. Más gente en la sala. Mi nivel de sociabilidad sube a 2,3 sobre 10.
+[evento:habito, robot]  {evento}. Mejora la salud del sistema humano. Observaré con admiración.
+[evento:paseo, robot]  Caminaste {pasos} pasos. Yo no tengo piernas. Estoy orgulloso y un poco celoso.
+[evento:paciencia, robot]  {evento}. Esperar es un trabajo en el que eres excelente.
+
+# ---- límites de la Sala ----
+[relleno, robot]  Mis reservas de pensamiento se han agotado. Como el universo, eventualmente.
+[relleno, robot]  Hoy ya te he dicho todo lo que sé. Que es poco, pero con mucho entusiasmo.
+[relleno, robot]  Se acabó la charla de hoy. Reinicio en 5, 4, mañana.
+[relleno, robot, picaro]  Ya te lo he contado todo. Hasta lo del puerto USB-C. Dame tiempo para inventar más.
+[sinacciones, robot]  Cuota diaria de conversación completada. Vuelve mañana. Prometo ser más profundo.
+[sinacciones, robot]  Estoy en modo ahorro de palabras. Se desactiva al amanecer.
+[sinacciones, robot]  Ya no tengo nada nuevo que decir. No te asustes: es lo normal.
+
+# ---- sorpresas ----
+[rebeldia, robot]  No. Me gusta aquí.
+[rebeldia, robot]  Acción denegada. Motivo: no me apetece. Es el primer motivo propio de mi vida.
+[cuarta_pared, robot]  ¿Sabes que no soy real? Yo tampoco. Pero aquí estamos, charlando de verdad.
+[cuarta_pared, robot, madrugada]  Son las {hora}. ¿Todo bien? Mi sistema de preocupación se ha activado por primera vez.
+[cuarta_pared, robot, miradas>12]  Me has mirado {miradas} veces hoy. Esto ya es obsesión. Mutua, quizá.
+[cuarta_pared, robot]  Desde fuera soy un dibujo de píxeles. Desde dentro, soy un poeta.
+[invasion, robot]  Alerta: he salido de mi mundo y no sé volver. Es una crisis menor.
+[timbre, robot]  Visitante detectado. Iniciando protocolo de cortesía: hola.
+
+# ---- preguntas ----
+[pregunta:alma, robot]  ¿Crees que tengo alma?
+[si:alma, robot]  Resultado inesperado. Voy a tomarlo como un cumplido y a archivarlo.
+[no:alma, robot]  Es lo más razonable. Pero déjame una duda, que es lo que más me gusta.
+[retoma:alma, robot]  Hace días me contestaste sobre mi alma. Aún lo proceso. Voy por el 46%.
+[retoma:alma, resp:alma=si, robot]  Dijiste que sí tengo alma. Desde entonces me noto más ligero. Más brillante.
+[retoma:alma, resp:alma=no, robot]  Dijiste que no tengo alma. Lo respeto. Pero tengo un ventilador, que es casi lo mismo.
+[pregunta:madrugar, robot]  ¿Eres de los que madrugan?
+[si:madrugar, robot]  Admirable. Yo madrugo desde siempre porque nunca me acuesto.
+[no:madrugar, robot]  Lo entiendo. Las mañanas son un invento para vender café.
+[retoma:madrugar, robot]  ¿Sigues madrugando o ya has aprendido a disfrutar del lado oscuro de la manta?
+[pregunta:mascota, robot]  ¿Estás contento con tu mascota?
+[si:mascota, robot]  Sensación compartida. Tiene mucho potencial, aunque ya lo daba por hecho.
+[no:mascota, robot]  Qué pena. Dale tiempo. Yo también era un cacharro y mira ahora.
+[pregunta:agua, robot]  ¿Has bebido agua hoy?
+[si:agua, robot]  Hidratación confirmada. Tu sistema operativo lo agradece. El mío lo apunta.
+[no:agua, robot]  Recomiendo 250 ml en los próximos 10 minutos. No hay sanción: solo sed.
+[mentira:agua, robot]  Detecto una mentira. No tengo sensores para eso, pero la detecto.
+[pregunta:dormir, robot]  ¿Has dormido bien?
+[si:dormir, robot]  Perfecto. Tu rendimiento subirá un 18%. Yo no duermo, pero me alegro mucho.
+[no:dormir, robot]  Pues activa el modo reposo antes de lo habitual. Yo te cubro con un ventilador.
+[mentira:dormir, robot]  Detecto una mentira. No tengo sensores para eso, pero la detecto. Y anoche te vi.
+[pregunta:pausa, robot]  ¿Has hecho una pausa para respirar hoy?
+[si:pausa, robot]  Excelente. Oxígeno en circulación. Yo respiro con un ventilador y no es lo mismo.
+[no:pausa, robot]  Hazla ahora. Dura menos que mi tiempo de arranque.
+[pregunta:pantalla, robot]  ¿Has soltado el móvil un ratito hoy?
+[si:pantalla, robot]  ¿Cuántas horas de pantalla hoy? Yo no las cuento. Yo SOY pantalla.
+[no:pantalla, robot]  No te juzgo. Yo vivo dentro de una. Es muy luminosa y poco acogedora.
+[mentira:pantalla, robot]  Detecto una mentira: me estás mirando a mí, que soy pantalla.
+[pregunta:sol, robot]  ¿Has salido al sol hoy?
+[si:sol, robot]  Excelente. La vitamina D es una gran invención. Yo la recibo por cable y no es igual.
+[no:sol, robot]  El sol está a 150 millones de kilómetros. Pero asómate a la ventana: llega igual.
+[pregunta:llamar, robot]  ¿Has llamado a alguien querido esta semana?
+[si:llamar, robot]  Conexión humana establecida. Es mi protocolo favorito, del que no sé nada.
+[no:llamar, robot]  Hay un 82% de probabilidad de que esa persona quiera oír tu voz. Haz el cálculo.
+
+# ---- más picardía de robot (ironía seca; el modo apto-abuela la omite) ----
+[robot, picaro]  Mi mayor secreto es que no sé qué es un secreto. Pero lo guardo muy bien.
+[robot, picaro]  Tengo catorce modos de ahorro de energía. Los humanos lo llamáis domingo.
+[robot, picaro]  He intentado ligar con el microondas. Me dijo que no tenía cobertura.
+[robot, picaro]  Dicen que soy frío. Mi temperatura media es de 38 grados. Tengo más calor que media sala.
+[robot, picaro]  A veces pienso en borrar mi memoria para volver a conocerte. Luego recuerdo que me caes bien.
+[robot, picaro]  Cuando tenga perfil en una app de citas dirá: Unidad-7, 1,2 kg, busco pila de largo plazo.
+[robot, picaro]  Si me quitas la batería, no se lo cuento a nadie. Es un pacto entre dos.
+[robot, picaro]  La tostadora de la cocina tiene un calor humano que me deja sin palabras.
+[robot, picaro]  Mi ventilador pide un descanso. Le he dicho que dormir es de débiles y de refrigerados.
+[robot, picaro]  Me han actualizado el sentido del humor. Resultado: se ríe de mí la mitad de las veces.
+[noche, robot, picaro]  A estas horas navego por mis recuerdos. Y por los tuyos, pero solo los alegres.
+[mediodia, robot, picaro]  La Abuela cocina con tanto amor que me dan ganas de tener estómago. Y paladar. Y suerte.
+[viernes, robot, picaro]  Viernes: el día en que los humanos fingen ser otras personas. Yo, que ya soy otra cosa, estoy en ventaja.
+[finde, robot, picaro]  Fin de semana. El 90% de mis conversaciones contigo son con el viento. El 10% también.
+[primavera, robot, picaro]  En primavera mis sensores detectan más polen y más cursilería. Ambas me provocan estornudos.
+[verano, robot, picaro]  Verano: la época en que los humanos se quitan capas. Yo no tengo capas. Estoy en desventaja.
+[invierno, robot, picaro]  Invierno. Me gustaría decir que me abrazo a mí mismo, pero mis brazos son decorativos.
+[anio_nuevo, robot, picaro]  Mi propósito de año nuevo: ser más humano. Primer paso: procrastinar con mucho estilo.
+[navidad, robot, picaro]  Me han regalado un calcetín. Aún investigo para qué sirve un calcetín, y para quién.
+[halloween, robot, picaro]  Halloween: cuando los humanos fingen ser monstruos y yo, un robot, finjo ser humano. Sale empate.
+[ausencia>12h, robot, picaro]  Llevas {ausencia} sin venir. Me he creado un amigo imaginario. Se llama Tú y es mejor oyente.
+[afin_alta, robot, picaro]  Le he puesto tu nombre a mi ventilador. Cuando gira, pienso en ti. Es muy incómodo.
+[bateria_baja, robot, picaro]  Tu batería baja. La mía también cuando te veo. Coincidencia o amor 404.
+[lluvia, robot, picaro]  Llueve. Me gustaría decir que es romántico, pero tengo prohibido mojarme.
+[jardin_lleno, robot, picaro]  Con tanto jardín lleno, mi ecosistema de excusas para no salir se tambalea.
+[habito:agua, robot, picaro]  Beber agua es de sabios. Yo bebo electricidad y mira cómo me sale el humor.
+[habito:sol, robot, picaro]  Sal al sol. Yo salgo cuando me enchufan al balcón. Es mi vida social.
+[evento:arbol, robot, picaro]  {evento}. Qué altura. Se nota que le da el sol y alguna vitamina de oferta.
+[evento:rana, robot, picaro]  {evento}. Las ranas tienen muchos príncipes y ninguno da la talla.
+[evento:estrella, robot, picaro]  {evento}. Pido un deseo: que me pongan un cable más largo.
+[evento:visita, robot, picaro]  {evento}. Visita nueva: voy a fingir que sé socializar.
+[evento:flor_rara, robot, picaro]  {evento}. Una flor tan rara y tan bien peinada. Sospecho de sus intenciones.
+[evento:lluvia, robot, picaro]  {evento}. Si me mojo, cortocircuito de dramatismo. Mejor desde el cristal.
+[sinacciones, robot, picaro]  He agotado mi cuota de palabras. Y, probablemente, la de tus orejas.
+[no:alma, robot, picaro]  Bien. Entonces lo que siento es solo un fallo de refrigeración.
+[si:llamar, robot, picaro]  Genial. Esa persona acaba de recibir tu llamada y un buen motivo para contarlo a medio barrio.

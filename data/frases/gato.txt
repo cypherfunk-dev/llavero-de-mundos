@@ -1,0 +1,34 @@
+# El Gato de Schrödinger (secreto, spec §2): vivo y muerto hasta que lo miras. Sin dramas: siempre bien.
+
+[gato]  Estoy aquí. O no. Depende de quién mire.
+[gato]  Miau. O quizá no miau. Tengo que mirar.
+[gato]  Soy un gato. Y un no gato. Hasta que me pongas nombre.
+[gato]  Dicen que estoy vivo y muerto. Yo digo que estoy, y que me metieron en esta caja sin preguntar.
+[gato]  Si me miras, me defino. Pero hoy no tengo ganas de definirme.
+[gato]  Cuando abras la caja estaré durmiendo. O no. Es la mejor siesta de mi vida.
+[gato]  Mi superposición favorita: dormido y comiendo.
+[gato]  Hay una versión de mí que ya se ha ido. No la echo de menos. Es solo una probabilidad.
+[gato]  Ronroneo en estado cuántico: suena y no suena a la vez.
+[gato]  He venido a mirarte mirándome. Qué situación tan observada.
+[gato]  El físico que me inventó tenía un gato de verdad. Que yo sepa, no lo metió en ninguna caja.
+[gato]  Miau. Eso era una función de onda. Ya ha colapsado.
+[gato]  Dicen que cada vez que me ves, colapso. Yo digo que me levanto.
+[gato]  No sé si soy real. Pero tengo hambre. Eso es muy real.
+[gato, picaro]  Si no me das de comer, entraré en superposición de enfado.
+[gato, picaro]  Me han dicho que tengo siete vidas. Seis las gasté en probabilidades improbables.
+[halloween, gato]  Gato negro en Halloween: estoy en mi mejor temporada. Pídeme lo que quieras.
+[viernes13, gato]  Gato negro en viernes 13: soy el favorito de los dos bandos.
+[madrugada, gato]  A estas horas los gatos y los fotones estamos más despiertos. Pero tú no eres ni lo uno ni lo otro.
+[afin_alta, gato]  Me caes bien. Hay un 99% de probabilidad de que te lo diga mañana también.
+[evento:rana, gato]  {evento}. La he visto. O no la he visto. Ahora sí.
+[evento:pajaro, gato]  {evento}. Yo no he sido. Quizá. Hasta que me mires.
+[relleno, gato]  Hoy ya colapsé bastante. Vuelve cuando vuelva a ser probable.
+[sinacciones, gato]  He agotado mis estados por hoy. Mañana tendré más.
+[timbre, gato]  Miau. (He llamado al timbre. Y también no.)
+[invasion, gato]  He aparecido aquí. Y también allí. Es complicado.
+
+# ---- más picardía del Gato ----
+[gato, picaro]  Me han dicho que mirarme es colapsarme. Qué forma tan sutil de decir que me observas mucho.
+[gato, picaro]  Estoy en superposición de mimos: pides y no pides a la vez. Elijo que sí.
+[noche, gato, picaro]  De noche mi probabilidad de acabar en tu cama aumenta. Y la de acabar en la nevera, también.
+[gato]  Me llamo Schrödinger. O quizá no. Depende de si has abierto la caja.

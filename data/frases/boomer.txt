@@ -1,0 +1,58 @@
+# El Boomer (visitante): nostálgico, bonachón y algo perdido con la tecnología.
+
+[timbre, boomer]  ¡Buenas! He llamado al timbre como Dios manda: con el dedo y sin aplicación.
+[timbre, boomer]  ¿Se puede? Vengo con pan y con historias.
+[timbre, boomer]  Perdón, ¿esto tiene antena? Es que no me llega la señal.
+[boomer]  Antes los teléfonos tenían cable y las discusiones, también.
+[boomer]  Ahora todo es wasap. Yo sigo escribiendo cartas. Nadie las contesta, pero qué sellos.
+[boomer]  En mi época un me gusta era una declaración de amor, no un pulgar.
+[boomer]  Mi móvil tiene catorce aplicaciones. Una la uso. Las otras trece me observan.
+[boomer]  Los jóvenes son maravillosos. Han inventado algo que no entiendo: el silencio con auriculares.
+[boomer]  Hoy he hecho una videollamada. Yo mirando el techo; mi nieto, el suelo. Fue emotivo.
+[boomer]  Mi mujer dice que hablo mucho. Yo creo que ella escucha poco, pero con mucho amor.
+[boomer]  Tengo un casete de 1987 con la voz de mi madre. Es mi tesoro y no tengo con qué oírlo.
+[boomer, picaro]  ¿Paciencia? Yo esperé tres años a que me dijeran que sí. Y luego se me olvidó la pregunta.
+[boomer, picaro]  Tenía un bigote tremendo en los ochenta. Se le veía antes que a mí.
+[boomer, picaro]  De joven caminaba cinco kilómetros al colegio. Cuesta arriba. Los dos sentidos. Con nieve en agosto.
+[habito:agua, boomer]  En mis tiempos el agua salía del grifo y no le hacíamos fotos.
+[manana, boomer]  Buenos días. ¿Has mirado el parte del tiempo? Yo miro la ventana, como Dios manda.
+[noche, boomer]  A esta hora yo ya estaba en la cama, con la radio bajita.
+[madrugada, boomer]  ¿Despierto a estas horas? En mis tiempos solo estaba despierto el gallo. Y el vecino del cuarto.
+[ausencia>3d, boomer]  Hacía {ausencia} que no te veía. Antes uno se escribía; ahora, ni eso.
+[viernes13, boomer]  Un viernes 13 es un día como otro cualquiera, pero con más sombra de duda.
+[anio_nuevo, boomer]  Feliz año. Las uvas, con calma: yo me atraganté en el 92 y todavía lo cuento.
+[navidad, boomer]  Feliz Navidad. Te he traído mazapán. Se lo he quitado al abuelo, pero lo merece.
+[afin_alta, boomer]  Siempre me hace ilusión verte. Eres como mis vecinos de antes: sabes escuchar.
+[evento:lluvia, boomer]  {evento}. Esto antes se avisaba por la radio y salía un señor con un paraguas.
+[evento:abeja, boomer]  {evento}. Ya no hay tantas. Cuídalas. Dan miel y también ilusión.
+[relleno, boomer]  Ya te he contado mis batallitas por hoy. Mañana, la del autobús.
+[sinacciones, boomer]  Se acabó la sobremesa. Mañana hay más. Con orujo.
+[invasion, boomer]  Perdone, ¿esta es la cola del banco? Qué... verde.
+[invasion, boomer]  Me he equivocado de puerta. Por lo menos aquí no hay que sacar número.
+[pregunta:casete, boomer]  ¿Te acuerdas de los casetes?
+[si:casete, boomer]  ¡Qué buenos tiempos! Rebobinar con un lápiz era una ciencia.
+[no:casete, boomer]  Eres joven, ya lo imaginaba. No sabes lo que te perdiste: rebobinar con un lápiz.
+[pregunta:agua, boomer]  ¿Has bebido agua hoy? Del grifo, nada de botellas.
+[si:agua, boomer]  Ahí está. Agua del grifo y salud de hierro.
+[no:agua, boomer]  Pues del grifo ya, que es gratis y no hace falta ni aplicación.
+[pregunta:llamar, boomer]  ¿Has llamado a alguien querido esta semana? Con voz, no con emojis.
+[si:llamar, boomer]  Qué bien. Una voz vale más que cien caritas amarillas.
+[no:llamar, boomer]  Pues llama. Aunque sea para decir: hola, que se me acabó el saldo.
+[pregunta:pantalla, boomer]  ¿Has soltado el móvil un rato? Yo lo suelto cuando no encuentro las gafas.
+[si:pantalla, boomer]  Así me gusta. El mundo sigue estando en su sitio.
+[no:pantalla, boomer]  Ya lo soltarás. Yo ni lo encuentro, que no es lo mismo.
+[pregunta:sol, boomer]  ¿Has salido al sol?
+[si:sol, boomer]  Bien. Un paseo al sol mantiene el cuerpo y el humor.
+[no:sol, boomer]  Pues sal, hombre. La tele no da vitamina D.
+[pregunta:dormir, boomer]  ¿Has dormido bien? A mi edad dormir es un deporte de riesgo.
+[si:dormir, boomer]  Pues ya somos dos. Yo, con tres despertares y un sueño sobre el 87.
+[no:dormir, boomer]  Pues a la cama pronto. La tele no se va, que la repiten.
+
+# ---- más picardía del Boomer ----
+[boomer, picaro]  En mis tiempos ligar era un arte. Ahora es un deslizamiento de dedo. Nadie se ruboriza.
+[boomer, picaro]  Yo sí que sabía bailar. Lo que no sabía era cuándo parar. Mi mujer lo recuerda perfectamente.
+[boomer, picaro]  Tengo más fotos en papel que tú en el móvil. Y todas salen mejor: tengo más pelo.
+[noche, boomer, picaro]  A esta hora solo se oyen grillos y la gente que dice ya me voy y luego no se va.
+[afin_alta, boomer, picaro]  Tú sí que eres buena gente. Y yo, en los ochenta, era buena gente con bigote.
+[evento:abeja, boomer, picaro]  {evento}. De flor en flor y nadie le dice nada. Qué suerte.
+[racha>6d, boomer, picaro]  {racha} días seguidos viniendo. Yo en mis tiempos llamaba a la puerta y ni así me abrían tanto.

@@ -1,0 +1,22 @@
+# Textos del propio llavero (spec §6): glitches falsos, carteles de "salí" y el arcade.
+# Cuarta pared: la dicen los personajes (abuela.txt y robot.txt, propósito cuarta_pared).
+
+[glitch, sistema]  CARTUCHO SUCIO. SOPLA.
+[glitch, sistema]  ERROR 0xCAFE. SOPLA EL CARTUCHO.
+[glitch, sistema]  SEÑAL PERDIDA. AGITA PARA RECUPERAR.
+[glitch, sistema]  FALLO EN LA LECTURA. SOPLA O AGITA.
+[glitch, sistema]  POLVO EN EL CARTUCHO. SOPLA CON CARIÑO.
+[glitch_ok, sistema]  Listo. Gracias por soplar.
+[glitch_ok, sistema]  Ahora sí. Qué cartucho tan dramático.
+[glitch_ok, sistema]  Arreglado. El polvo se fue de vacaciones.
+[glitch_ok, sistema]  Señal recuperada.
+[glitch_ok, sistema]  Funciona. Nadie sabe por qué, y eso lo hace más bonito.
+[cartel, sistema]  Salí. Vuelvo en 5 min.
+[cartel, sistema]  Salí a comprar leche. Vuelvo en 5 min.
+[cartel, sistema]  Fui a ver las nubes. Vuelvo en 5 min.
+[cartel, sistema]  Salí al jardín de al lado. Vuelvo en 5 min.
+[cartel, sistema]  Cerrado por siesta. Vuelvo en 5 min.
+[cartel, sistema]  Salí a buscar mi sentido del humor. Vuelvo en 5 min.
+[moneda, sistema]  INSERT COIN
+[moneda, sistema]  INSERTA MONEDA
+[moneda, sistema]  CONTINUAR? INSERT COIN

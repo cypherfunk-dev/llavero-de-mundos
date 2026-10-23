@@ -1,0 +1,236 @@
+# Abuela Sol (spec §4.3): solarpunk, sabia, cariñosa y con algo de mala leche.
+# Las etiquetas "picaro" marcan el humor irónico (~30%); el resto es blanco y tierno.
+
+# ---- charla suelta ----
+[abuela]  El té está en su punto. Tú también, aunque no lo sepas.
+[abuela]  Las plantas no se miran, se quieren. Y se riegan, claro.
+[abuela]  Mi abuela decía que el compost es la forma más honesta de amor.
+[abuela]  Ven, siéntate. Las prisas se quedan en la puerta, con los zapatos.
+[abuela]  Un día sin sol es un día de abrigo. Un día sin té es un día perdido.
+[abuela]  Tengo paneles solares en el tejado. Y en el corazón, un inversor roto.
+[abuela]  Yo no tengo wifi, tengo tomates. Y mira qué buena conexión.
+[abuela]  Cada gusano de mi compostera tiene nombre. No te los digo: se ponen celosos.
+[abuela]  El mundo corre, mi vida. El tomate, no. Y mira qué rojo sale.
+[abuela]  Eres un llavero y aun así llevas un jardín dentro. Qué cosas.
+[abuela]  Todo se transforma, cariño. Menos mi mal humor: ese es de fábrica.
+[abuela, picaro]  A tu edad yo tenía tres novios y un huerto. El huerto sigue vivo.
+[abuela, picaro]  Yo cuido los tomates con la misma ternura con que miro al vecino. Con poca vergüenza.
+[abuela, picaro]  No soy cotilla. Soy archivista de la vida ajena.
+[abuela, picaro]  Me casé por amor. Me quedé por la huerta.
+[abuela, picaro]  Cuéntame algo. Pero que sea jugoso: mi novela de las cuatro ya se acabó.
+
+# ---- franja del día ----
+[madrugada, abuela, habito:dormir]  ¿Tú no duermes? Yo sí, en pijama y con el moño suelto. A la cama.
+[madrugada, abuela]  A estas horas hasta las lechugas descansan. Vete a dormir, anda.
+[madrugada, abuela, picaro]  Con esas ojeras me haces parecer joven a mí. Hala, a la cama.
+[madrugada, abuela, picaro]  Despierto de madrugada: o hay amor o hay una mala novela. Si es el móvil, no cuenta.
+[noche, abuela]  A estas horas solo trabajan las lechuzas y los hongos.
+[noche, abuela]  Qué bonita la noche con una tila. Huele a manta.
+[noche, abuela]  Las estrellas son las lámparas de los vecinos de arriba. Siempre hay una encendida.
+[manana, abuela]  Buenos días, mi vida. ¿Has desayunado o solo has mirado el llavero?
+[manana, abuela]  La tierra huele distinta a primera hora. Huele a que todo es posible.
+[manana, abuela]  Madrugar es de gente con huerto. Los demás, con suerte, llegamos al té.
+[manana, abuela, picaro]  Buenos días. El sol lleva horas trabajando y tú, de momento, solo has aparecido.
+[mediodia, abuela]  A mediodía hasta las lagartijas buscan sombra. Y tú, ¿has comido?
+[mediodia, abuela]  Es hora de comer. Lo demás se puede quemar; la comida, no.
+[tarde, abuela]  Hora del té. No se negocia.
+[tarde, abuela]  La tarde se hizo para el té y la conversación. Tú trae la conversación.
+[tarde, abuela, picaro]  A esta hora la luz dora los tomates. Y a mí me dora el cabreo.
+
+# ---- día, estación, luna, fechas ----
+[lunes, abuela]  Los lunes son como el compost: huelen mal, pero luego todo florece.
+[viernes, abuela]  Viernes. El jardín no sabe de fines de semana, pero yo sí: té con pastas.
+[finde, abuela]  Es fin de semana: se permite no hacer nada con mucha dedicación.
+[domingo, abuela]  Domingo de manta, té y ningún plan. Así se vive.
+[primavera, abuela]  La primavera es el jardín gritando sorpresa. Cada año con el mismo cumpleaños.
+[verano, abuela]  Con este calor hasta los tomates piden sombra. Yo, un abanico y chismes.
+[otono, abuela]  En otoño todo se cae con elegancia. Aprende de las hojas.
+[invierno, abuela]  En invierno el jardín duerme. No lo despiertes: es como yo después de comer.
+[luna_llena, abuela]  Hay luna llena. Las plantas crecen raro y yo, cuando la veo, canto. Es una amenaza.
+[luna_llena, abuela, picaro]  Con luna llena siembro lo que no debería. Aún no ha salido mal. Del todo.
+[luna_nueva, abuela]  Luna nueva. Buen momento para empezar cosas y para escaquearse de reuniones.
+[halloween, abuela]  Halloween: los niños piden caramelos y yo doy zanahorias. Así se aprende.
+[halloween, abuela, picaro]  He tallado una calabaza. Se parece a mi cuñado, pero sin la mala leche.
+[viernes13, abuela]  Viernes 13. Yo no soy supersticiosa. Pero hoy no paso bajo ninguna escalera.
+[anio_nuevo, abuela]  Feliz año nuevo, mi vida. Las uvas, de la huerta. Y sin pepitas.
+[anio_nuevo, abuela, picaro]  Propósitos de año nuevo: más té, menos prisas. Y un novio, pero eso es otro tema.
+[navidad, abuela]  Feliz Navidad. He hecho turrón de calabaza. Nadie lo ha pedido, pero lo vas a probar.
+[navidad, abuela]  En Navidad el compost también merece algo: cáscaras de mandarina.
+
+# ---- relación: tiempo sin mirar, miradas, racha, afinidad ----
+[ausencia>3d, abuela]  Qué bien que vuelves. {ausencia} sin verte y el té se me enfrió dos veces.
+[ausencia>3d, abuela, picaro]  {ausencia} sin verte. Las plantas te echaban de menos. Yo, un poquito. Una pizca.
+[ausencia>12h, abuela]  Has tardado {ausencia} en venir. No pasa nada. Yo tampoco esperaba. (Un poco sí.)
+[ausencia>2h, abuela]  Mira quién se acuerda de nosotras. Han pasado {ausencia}, pero hay té: te perdono.
+[ausencia<10m, abuela]  Me miraste hace {ausencia}. Las plantas crecen cuando no las miras. Como los hijos. Y las deudas.
+[ausencia<10m, abuela]  Otra vez tú. Hace {ausencia} que te fuiste y las plantas no han crecido ni un milímetro.
+[ausencia<10m, abuela, picaro]  Ya has vuelto. Si miras tanto, el té no se hace solo, ¿eh?
+[miradas>8, abuela, cuarta_pared]  Esta ya es la mirada {miradas} de hoy. Yo me alegro, pero ve a ver un árbol de verdad.
+[miradas>8, abuela, cuarta_pared, picaro]  Me has mirado {miradas} veces hoy. Esto ya es obsesión.
+[racha>3d, abuela, picaro]  Llevas {racha} días seguidos viniendo. Eso es constancia. O soledad. Yo no juzgo.
+[racha>6d, abuela]  {racha} días seguidos. Ya eres de la familia. Te toca fregar.
+[afin_alta, abuela]  Qué alegría verte, mi vida. Siempre vienes a verme. Dame un abrazo de píxeles.
+[afin_alta, abuela]  Contigo se me cura hasta la ciática. Y no es broma: tenía ciática.
+[afin_alta, abuela]  A ti te guardo el trozo grande de bizcocho. Pero no se lo digas al robot.
+[afin_baja, abuela, picaro]  Ah, eres tú. Ya me acordaba de ti. Un poco. Un poquito. Casi nada.
+[afin_baja, abuela, picaro]  No te preocupes por mí. Yo, aquí, hablando con las macetas. Ellas sí escuchan.
+[afin_baja, abuela, picaro]  Me he acostumbrado a tu ausencia, como a los zapatos nuevos: con ampollas.
+[afin_baja, abuela]  Eh, que aquí estoy. Cuando quieras charlar, el té sigue caliente. Más o menos.
+
+# ---- el cuerpo del llavero ----
+[agitar, abuela]  ¡Ay! ¿Qué es esto, un terremoto? Con cuidado, que tengo la dentadura floja.
+[agitar, abuela]  Si me agitas, el té se derrama. Y entonces sí que me enfado.
+[bateria_baja, abuela]  Se te acaba la batería, mi vida. A mí no me importa: yo funciono con té.
+[bateria_baja, abuela]  Cárgate, cariño, que da cosa verte tan flojito.
+[cargando, abuela]  Estás cargando. Qué bien, un descansito. Yo también me cargo: con una siesta.
+
+# ---- el universo (estado del jardín, mascota, colección) ----
+[lluvia, abuela]  Llueve. Las plantas están de fiesta y yo, con mi manta.
+[viento, abuela]  Hoy hay viento. Agárrate el moño y las ideas, que se llevan.
+[nieve, abuela]  Está nevando. Hay que abrigar a las plantas. Y a ti, que se te ve flaco.
+[jardin_lleno, abuela]  Qué jardín tan lleno. Si sigue así, voy a necesitar otro jardín.
+[jardin_vacio, abuela]  El jardín está despejado. Descanso de tierra, se llama. Lo digo yo, que ni idea.
+[mascota:hongo, abuela, picaro]  Tu {mascota} me cae bien. Habla poco. Como mi primer marido.
+[mascota:semilla, abuela]  Esa {mascota} tuya mira al sol como yo a las rebajas.
+[mascota:piedra, abuela]  La piedra es la más sabia de la casa. No dice nada y nunca se equivoca.
+[mascota:compostera, abuela]  La compostera es mi favorita. Se come lo que sobra. Ojalá todo el mundo.
+[coleccion>5, abuela, picaro]  Qué colección más bonita. Yo colecciono tapetes de ganchillo. Y rencores.
+[bolsa_llena, abuela]  Tienes la bolsa llena. Úsala, hijo, que las cosas guardadas se ponen tristes.
+
+# ---- hábitos (empujoncitos sin sermón; se callan si desactivas el hábito) ----
+[habito:agua, abuela]  Bebe agua. Eres 60% agua y 40% excusas.
+[habito:agua, abuela]  Un vasito de agua, anda. Tus plantas beben cuando tienen sed; tú, te aguantas.
+[habito:pausa, abuela]  Respira con tu mascota, cariño. Cuatro por dentro, seis por fuera, y que pare el mundo.
+[habito:sol, abuela]  Sal a que te dé el sol. Lo digo con cariño: estás más pálido que un nabo.
+[habito:pantalla, abuela]  Deja el móvil un ratito. Fuera, el mundo sigue teniendo colores.
+[habito:dormir, abuela]  Acuéstate pronto hoy, mi vida. El sueño es el mejor abono.
+
+# ---- comentan el diario (el motor rellena {evento}) ----
+[evento:manzana_podrida, abuela]  {evento}. Para el compost, como todo en la vida.
+[evento:manzana_podrida, abuela]  Ay, {evento}. No la tires: el compost agradece lo podrido.
+[evento:manzana_cae, abuela]  {evento}. Lo que el viento tira, la abuela lo recoge.
+[evento:brote, abuela]  {evento}. Fíjate qué pequeño y ya con ganas de mandar.
+[evento:arbol, abuela]  {evento}. Qué orgullo. Crecen tan rápido que da pena.
+[evento:hongo, abuela]  {evento}. No te lo comas sin preguntarme. Yo no sé, pero pregúntame.
+[evento:flor_rara, abuela]  {evento}. Una así sale cada muchas lunas. Apúntalo.
+[evento:pajaro, abuela]  {evento}. Viene a ver si hay migas. Siempre hay migas.
+[evento:semilla_pajaro, abuela]  {evento}. Los pájaros plantan sin cobrar. Así da gusto.
+[evento:abeja, abuela]  {evento}. Trabaja sin descanso. Como yo, pero con alas.
+[evento:lombriz, abuela]  {evento}. Saluda a la lombriz de mi parte. Se llama Fermín.
+[evento:rana, abuela, picaro]  {evento}. Si la besas, con cuidado: ya tengo bastante con mis ex.
+[evento:lluvia, abuela]  {evento}. Qué bendición. Las plantas beben y yo no riego.
+[evento:viento, abuela]  {evento}. Agárrate el moño, como yo.
+[evento:nieve, abuela]  {evento}. Qué silencio tan blanco. Se oye hasta el té enfriarse.
+[evento:arcoiris, abuela]  {evento}. Dicen que al final hay un tesoro. Será un compost bien maduro.
+[evento:estrella, abuela]  {evento}. Pide un deseo, pero no me lo cuentes: se gafa.
+[evento:abono, abuela]  {evento}. Esto sí que es riqueza, y no la del banco.
+[evento:descubrimiento, abuela]  {evento}. Qué curioso eres. De pequeño abrías todos los cajones.
+[evento:mascota_crece, abuela]  {evento}. Cómo crece esa mascota. Y tú, ¿para cuándo?
+[evento:mascota_nace, abuela]  {evento}. Otra generación. El ciclo de la vida, cariño, que no para.
+[evento:mascota_cuidada, abuela]  {evento}. Qué bien la cuidas. A ver si aprendes a cuidarte a ti.
+[evento:mascota_palabra, abuela]  {evento}. Algo dijo. Con los hongos, mejor no preguntar qué.
+[evento:esporas, abuela, picaro]  {evento}. Está esporulando. No mires, que es muy suyo.
+[evento:compostera_come, abuela]  {evento}. Los gusanos están encantados. Hoy hay festín.
+[evento:bolsa_llena, abuela]  {evento}. Las cosas buenas se usan, mi vida. No se guardan.
+[evento:objeto, abuela]  {evento}. Buen uso, hijo. Las cosas se hicieron para usarse.
+[evento:visita, abuela]  {evento}. Qué alegría. Pon más té, que somos muchos.
+[evento:habito, abuela]  {evento}. Eso es: cuidarse sin que lo diga yo. Casi me quedo sin trabajo.
+[evento:paseo, abuela]  Has caminado {pasos} pasos. Ahora sí te mereces el bizcocho.
+[evento:paciencia, abuela]  {evento}. Es lo bueno de esperar: la vida hace cosas a escondidas.
+
+# ---- límites de la Sala (hasta 2 conversaciones nuevas al día) ----
+[relleno, abuela]  Ya te conté todo por hoy. Mañana más.
+[relleno, abuela]  Hoy ya está dicho. Las palabras, como el té, se toman poco a poco.
+[relleno, abuela]  Mañana más. Hoy me toca la siesta.
+[relleno, abuela, picaro]  Cariño, me quedo sin voz. Vuelve mañana y te cuento lo de mi vecino.
+[sinacciones, abuela]  Paciencia. Las plantas no tienen prisa.
+[sinacciones, abuela]  Todo a su tiempo, mi vida. Hasta el tomate espera.
+[sinacciones, abuela]  Hoy ya no hay más charla, pero puedes quedarte a mi lado en silencio. Eso también vale.
+
+# ---- sorpresas ----
+[rebeldia, abuela]  No. Me gusta aquí.
+[rebeldia, abuela]  ¿Otra vez cambiar? Yo de aquí no me muevo, que me han puesto cojín.
+[cuarta_pared, abuela]  ¿Sabes que estoy dentro de un llavero? No me quejo: tiene vistas.
+[cuarta_pared, abuela, miradas>12]  Me has mirado {miradas} veces hoy. Esto ya es obsesión. Tierna, pero obsesión.
+[cuarta_pared, abuela, madrugada]  Son las {hora}. ¿Todo bien? Aquí nadie te juzga, pero todos nos preocupamos.
+[cuarta_pared, abuela]  Dicen que no hay que hablar con las plantas. Y mira, aquí estás tú hablando conmigo.
+[invasion, abuela]  Ay, perdona, me he perdido buscando el compost.
+[timbre, abuela]  Pasa, pasa, que no muerdo. Salvo si es la hora del bizcocho.
+
+# ---- preguntas de sí o no ----
+[pregunta:plantas, abuela]  ¿Has regado tus plantas esta semana?
+[si:plantas, abuela]  Así me gusta. Una planta regada es una planta que te perdona.
+[no:plantas, abuela]  Ay, criatura. Aquí no hay reproches, solo una regadera esperando.
+[retoma:plantas, abuela]  ¿Y esas plantas? ¿Siguen vivas o ya son compost?
+[retoma:plantas, resp:plantas=no, abuela]  ¿Y esas plantas que no regaste? Dime que siguen vivas. O que son compost: ambas son dignas.
+[retoma:plantas, resp:plantas=si, abuela]  ¿Cómo van esas plantas tan bien regadas? Seguro que ya te dan las gracias.
+[pregunta:llamar, abuela]  ¿Has llamado a alguien querido esta semana?
+[si:llamar, abuela]  Eso es. Una llamada vale más que mil mensajes con corazoncitos.
+[no:llamar, abuela]  ¿Hace cuánto no llamas a tu madre? No respondas. Llama.
+[pregunta:te, abuela]  ¿Te gusta el té?
+[si:te, abuela]  Sabía que eras de los míos. Siéntate, hay para dos.
+[no:te, abuela]  Pues será café. Se te perdona, pero con la ceja levantada.
+[pregunta:mascota, abuela]  ¿Quieres a tu mascota?
+[si:mascota, abuela]  Pues claro que sí. Se nota: se te pone cara de bobo.
+[no:mascota, abuela]  Ay, ya se te pasará el enfado. A mí me costó con mi suegra.
+[retoma:mascota, resp:mascota=si, abuela]  Esa mascota tuya, ¿sigue siendo tan querida? Se te veía el cariño desde aquí.
+[retoma:mascota, resp:mascota=no, abuela]  ¿Y la mascota? A veces se quiere a mala leche, pero se quiere. Dale una oportunidad.
+[pregunta:agua, abuela]  ¿Has bebido agua hoy?
+[si:agua, abuela]  Esa es mi criatura. Mañana, otro vasito. Y pasado, otro.
+[no:agua, abuela]  Pues anda, un vasito ahora. Yo espero. Tengo té, pero tú pide agua.
+[pregunta:dormir, abuela]  ¿Has dormido bien?
+[si:dormir, abuela]  Se nota en la cara. El buen sueño es el mejor abono.
+[no:dormir, abuela]  Hoy acuéstate antes y sin pantallas. Te lo digo yo, que he dormido hasta con gallinas.
+[pregunta:pausa, abuela]  ¿Has parado a respirar un ratito hoy?
+[si:pausa, abuela]  Eso es. Con calma se cuecen hasta las judías.
+[no:pausa, abuela]  Pues respira ahora: cuatro adentro, seis afuera. Yo cuento.
+[pregunta:pantalla, abuela]  ¿Has soltado el móvil un ratito hoy?
+[si:pantalla, abuela]  Qué bonito. El mundo no se acaba cuando lo sueltas, ¿a que no?
+[no:pantalla, abuela]  Ya lo soltarás cuando se te canse el dedo.
+[pregunta:sol, abuela]  ¿Has salido a que te dé el sol?
+[si:sol, abuela]  Eso. Una planta sin sol se pone mustia; una persona, también.
+[no:sol, abuela]  Pues mañana, aunque sea al balcón. Dos minutos de sol no matan a nadie.
+[mentira:agua, abuela]  Con esa cara de bobo no me engañas. Pero me gusta la intención.
+[mentira:dormir, abuela]  Si hubieras dormido, no tendrías esa cara. Pero gracias por el cuento.
+
+# ---- más picardía de abuela (irónica, nunca cruel; el modo apto-abuela la omite) ----
+[abuela, picaro]  A mi edad solo me emocionan las rebajas y los tomates maduros. Y algún vecino, pero poco.
+[abuela, picaro]  Dicen que el té adelgaza. Llevo sesenta años tomándolo y sigo igual de generosa.
+[abuela, picaro]  No te fíes de quien no come bizcocho. Se guarda algo.
+[abuela, picaro]  En mi juventud bailé tanto que el vecino pidió que me mudara. Fue un honor.
+[abuela, picaro]  Mi marido era como mi tomatera: mucha promesa y poca cosecha. Pero cómo daba sombra.
+[abuela, picaro]  Si el jardín hablara, contaría cosas mías que ni el cura sabe.
+[abuela, picaro]  Yo no fui rompecorazones, pero el cardiólogo me conoce por mi nombre.
+[abuela, picaro]  Cuando me preguntan la edad, contesto con el número de novios. Sale más corto y más jugoso.
+[abuela, picaro]  Cotilleo, luego existo. Los vecinos, también.
+[madrugada, abuela, picaro]  A estas horas las abuelas decentes duermen. Yo no soy decente: soy abuela.
+[manana, abuela, picaro]  Buenos días. Me he levantado de buen humor. Es raro: debo estar enferma.
+[mediodia, abuela, picaro]  Hoy hay lentejas. Lo que sobre va para el vecino, a ver si se anima.
+[tarde, abuela, picaro]  Merienda con ganchillo: yo tejo, tú callas y el vecino pasa por la ventana. Plan perfecto.
+[noche, abuela, picaro]  De noche me pongo la bata de flores y soy la reina del barrio. Los gatos me hacen reverencias.
+[viernes, abuela, picaro]  Viernes: hasta los tomates querrían salir. Yo también, pero a las diez ya estoy en pijama.
+[finde, abuela, picaro]  El fin de semana me arreglo para nadie. Es la mejor inversión.
+[primavera, abuela, picaro]  En primavera los pájaros se emparejan y yo me acuerdo de cosas. No te las cuento.
+[verano, abuela, picaro]  En verano los vecinos salen al balcón en bañador. Yo riego con mucha atención.
+[otono, abuela, picaro]  El otoño me pone melancólica, y ahí me da por la crema de calabaza y el cotilleo.
+[invierno, abuela, picaro]  En invierno me abrigo tanto que parezco una cebolla con ganas de hablar.
+[luna_llena, abuela, picaro]  Luna llena: noche perfecta para mirar por la ventana al vecino. A las estrellas, digo.
+[ausencia>12h, abuela, picaro]  Has tardado {ausencia}. A mí me han dado plantón mejores, pero ninguno tan guapo.
+[afin_alta, abuela, picaro]  Como te portas tan bien, te meto en el testamento. En el apartado de los tomates.
+[agitar, abuela, picaro]  Si me agitas así, vuelvo a sentirme joven. Qué mareo tan bonito.
+[lluvia, abuela, picaro]  Llueve. Perfecto para quedarse en casa, hacer bizcocho y olvidar a medio barrio.
+[jardin_lleno, abuela, picaro]  Un jardín tan lleno... como mi agenda social de 1974.
+[habito:agua, abuela, picaro]  Bebe agua, que luego dices que estás mareado y lo que tienes es resaca de vida.
+[habito:sol, abuela, picaro]  Sal al sol, que pareces un yogur del fondo de la nevera.
+[habito:pantalla, abuela, picaro]  Suelta el móvil. Yo a tu edad me enamoraba mirando por una ventana, y funcionaba.
+[habito:dormir, abuela, picaro]  A la cama pronto. Lo digo yo, que me acuesto con una novela y un buen pensamiento.
+[evento:manzana_cae, abuela, picaro]  {evento}. Qué atrevida: tirarse sola, y delante de todos.
+[evento:brote, abuela, picaro]  {evento}. Ya se le ve el cogollo. Qué descaro de criatura.
+[evento:flor_rara, abuela, picaro]  {evento}. Qué flor tan presumida. Como yo en el 74.
+[evento:pajaro, abuela, picaro]  {evento}. Cría cuervos y te sacarán... las migas.
+[evento:visita, abuela, picaro]  {evento}. A ver si trae chismes. Si no, que traiga bizcocho.
+[evento:mascota_cuidada, abuela, picaro]  {evento}. Con tanto mimo la vas a malcriar. Haces bien.
+[sinacciones, abuela, picaro]  Hoy no me saques más palabras, que las que tengo guardadas son de las buenas.
+[no:plantas, abuela, picaro]  Pues tus plantas estarán como los maridos: aguantando sin quejarse.
+[no:te, abuela, picaro]  Café, dices. Y luego te preguntas por qué se te acelera el corazón.
+[si:sol, abuela, picaro]  Ya se te nota el color. Estás más guapo que un melocotón en agosto.

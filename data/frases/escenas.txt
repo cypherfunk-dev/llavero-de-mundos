@@ -1,0 +1,57 @@
+# Escenas a dos voces (spec §4.3). Cada escena: líneas 1..N seguidas, dichas por personajes
+# que tienen que estar en la sala. Las condiciones solo se admiten en la línea 1.
+# Tocar A avanza a la siguiente línea sin gastar otra conversación.
+
+[escena:existir:1, robot]  Si nadie me mira, ¿existo?
+[escena:existir:2, abuela]  Si nadie te mira, riegas los tomates. Vamos.
+
+[escena:compost:1, abuela]  ¿Sabes cuál es el secreto del compost?
+[escena:compost:2, robot]  ¿La paciencia?
+[escena:compost:3, abuela]  Las sobras de la cena del vecino.
+
+[escena:nubes:1, robot]  Hoy he contado 47 nubes. Todas distintas.
+[escena:nubes:2, abuela]  ¿Y alguna te ha dicho hola?
+[escena:nubes:3, robot]  Ninguna. Pero una me dejó una gota.
+
+[escena:te:1, abuela]  Prueba el té.
+[escena:te:2, robot]  No tengo boca.
+[escena:te:3, abuela]  Pues huélelo con cariño.
+
+[escena:tomate:1, abuela]  ¿Qué le pasa a mi tomate?
+[escena:tomate:2, robot]  Es un fruto. Se está madurando.
+[escena:tomate:3, abuela]  ¿Y yo, qué me pasa?
+[escena:tomate:4, robot]  Usted también se está madurando.
+[escena:tomate:5, abuela]  Qué fresco eres. Me caes bien.
+
+[escena:wifi:1, robot, picaro]  Detecto una señal de internet muy débil.
+[escena:wifi:2, picaro, abuela]  Es la del vecino. Le puse de contraseña mi nombre al revés.
+[escena:wifi:3, picaro, robot]  Eso es ilegal.
+[escena:wifi:4, picaro, abuela]  Y delicioso.
+
+[escena:util:1, robot]  De mayor quiero ser útil.
+[escena:util:2, abuela]  Eres un llavero. Ya abres las puertas.
+[escena:util:3, robot]  Y las ventanas de la memoria.
+[escena:util:4, abuela]  Ahora te me pones cursi.
+
+[escena:hibisco:1, abuela]  Te he hecho té de hibisco.
+[escena:hibisco:2, gotica]  No bebo nada que no sea negro.
+[escena:hibisco:3, abuela]  Pues le echo un chorrito de tinta de calamar.
+[escena:hibisco:4, gotica]  ...Ponme dos.
+
+[escena:stats:1, gamer]  Robot, ¿cuál es tu estadística más alta?
+[escena:stats:2, robot]  Mi capacidad de procesar dudas.
+[escena:stats:3, gamer]  Yo tengo +20 en procrastinación.
+[escena:stats:4, robot]  Eso no es una estadística. Es un estilo de vida.
+
+[escena:maquinas:1, boomer]  En mis tiempos las máquinas no hablaban.
+[escena:maquinas:2, robot]  En mis tiempos, que son estos, los humanos hablaban demasiado.
+[escena:maquinas:3, boomer]  Touché, chaval.
+[escena:maquinas:4, robot]  No soy un chaval. Soy una Unidad.
+
+[escena:gato:1, robot]  Gato, ¿estás vivo?
+[escena:gato:2, gato]  Estoy. Y no estoy.
+[escena:gato:3, robot]  Yo tampoco lo tengo claro.
+
+[escena:michi:1, abuela]  Michi, michi.
+[escena:michi:2, gato]  No sé si soy michi.
+[escena:michi:3, abuela]  Tú come, que luego ya colapsas.

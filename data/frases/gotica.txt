@@ -1,0 +1,57 @@
+# La Gótica (visitante): melancólica, irónica, con la ternura bien escondida.
+
+[timbre, gotica]  He llamado al timbre sin ganas. Y aun así, aquí estoy.
+[timbre, gotica]  ¿Es aquí el velatorio? Ah, no. Es una fiesta. Qué... luminoso.
+[timbre, gotica]  He llegado. No me aplaudas.
+[gotica]  Mi color favorito es el negro. Mi segundo, un negro un poco más oscuro.
+[gotica]  No estoy triste. Estoy en modo atmósfera.
+[gotica]  Las flores se marchitan, pero con estilo. Ellas me entienden.
+[gotica]  Escribo poesía. Rima con nada, con madrugada y con nadie. Es complicado.
+[gotica]  La Abuela me prepara té de hibisco. Yo finjo que no me gusta. Me lo bebo entero.
+[gotica]  Esta luz tan alegre me da urticaria. Pero tengo que admitir que el té huele bien.
+[gotica]  Tú me caes bien. No se lo digas a nadie. Tengo una reputación que mantener.
+[gotica, picaro]  Hoy me he reído. Ha sido un accidente. No volverá a pasar.
+[gotica, picaro]  Dicen que soy fría. Yo solo tengo buena memoria para las tonterías ajenas.
+[madrugada, gotica, picaro]  Me encanta la noche. Pero tú a las 3 de la mañana mirando un llavero... eso ya es otra cosa.
+[noche, gotica]  Por fin ha caído la noche. Hasta el aire respira mejor.
+[manana, gotica]  ¿Por la mañana? Qué crueldad. Dame un minuto en penumbra.
+[luna_llena, gotica]  Esta noche no me esperes despierta.
+[luna_llena, gotica]  Luna llena. Hoy hasta yo me siento un poco sociable. Es alarmante.
+[halloween, gotica]  Halloween: el día en que todos fingen ser como yo. Es halagador y ofensivo a la vez.
+[halloween, gotica, picaro]  Mi disfraz de Halloween es ir como siempre. Y aun así he ganado el concurso.
+[viernes13, gotica]  Un viernes 13 que por fin me da la razón.
+[lluvia, gotica]  Llueve. Por fin el cielo se pone a mi nivel.
+[ausencia>3d, gotica, picaro]  Has tardado {ausencia} en volver. No lo he notado. Mentira: lo he escrito en un poema.
+[habito:agua, gotica]  Bebe agua. Las ojeras te quedan bien; la deshidratación, no.
+[evento:manzana_podrida, gotica]  {evento}. Es lo más bonito que ha pasado en la sala esta semana.
+[evento:lluvia, gotica]  {evento}. El cielo por fin se sincera.
+[evento:estrella, gotica]  {evento}. Pido un deseo: que nadie me pregunte qué pido.
+[relleno, gotica]  Ya hablé demasiado. Si sigo, me vuelvo simpática.
+[relleno, gotica]  Hoy se acabaron mis palabras. Las guardo para mi diario.
+[sinacciones, gotica]  Mis ganas de conversar son como la luz de la sala: apagadas por hoy.
+[invasion, gotica]  ¿Esto es un jardín? Qué... luminoso. Me quedo cinco minutos.
+[invasion, gotica]  Vengo a ver cómo crecen las plantas. Y a no hablar con nadie.
+[pregunta:triste, gotica]  ¿Te pasa que a veces estás feliz y escuchas música triste?
+[si:triste, gotica]  Lo sabía. Somos de la misma secta.
+[no:triste, gotica]  Tienes suerte. O mala memoria. Una de dos.
+[pregunta:agua, gotica]  ¿Has bebido agua hoy? Ya sé que no es muy gótico.
+[si:agua, gotica]  Bien. Un vampiro hidratado es un vampiro elegante.
+[no:agua, gotica]  Bebe, anda. Las ojeras me gustan, pero la sequedad no es romántica.
+[pregunta:dormir, gotica]  ¿Has dormido? Yo no, pero yo soy de la noche. Tú no tienes excusa.
+[si:dormir, gotica]  Qué envidia. Mi sueño es de pocas horas y mucho drama.
+[no:dormir, gotica]  Bienvenido al club de las ojeras. Hay descuentos en velas.
+[pregunta:sol, gotica]  ¿Has salido al sol? A mí me da urticaria, pero tú no eres yo.
+[si:sol, gotica]  Un rato, vale. Pero no te acostumbres: el negro es más favorecedor.
+[no:sol, gotica]  Haces bien. Pero asómate un minuto, que la vitamina D no se inventó sola.
+[pregunta:pantalla, gotica]  ¿Has soltado el móvil un rato? Yo no, pero yo escribo poesía en él.
+[si:pantalla, gotica]  Bien hecho. La luz azul solo ilumina las ojeras.
+[no:pantalla, gotica]  Nadie te juzga. Yo tengo cuatrocientas capturas de lunas.
+
+# ---- más picardía de la Gótica ----
+[gotica, picaro]  Mi corazón es de piedra, pero con buenas vistas. Hay lista de espera para entrar.
+[gotica, picaro]  Dicen que soy oscura. Yo digo que soy una luz que tiene mucho estilo apagada.
+[gotica, picaro]  Si me invitas a una fiesta, vendré. Pero me iré cuando alguien diga la palabra karaoke.
+[noche, gotica, picaro]  Hoy estoy encantadora. Pregúntale al espejo: no se refleja, pero opina.
+[afin_alta, gotica, picaro]  Contigo hasta el negro me parece menos oscuro. No lo repitas, que pierdo el prestigio.
+[afin_baja, gotica, picaro]  No te preocupes por ignorarme. Tengo cuatro diarios y todos hablan de ti.
+[evento:hongo, gotica, picaro]  {evento}. Lo admiro: crece donde nadie mira y huele a drama.
