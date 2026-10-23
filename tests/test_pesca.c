@@ -462,6 +462,7 @@ static void test_minigame_skill(void)
     }
     CHECK_EQ(perfect_wins, perfect_total);
     CHECK_EQ(never_wins, 0);
+    CHECK_EQ(never_total, perfect_total);
 
     /* El que mantiene A siempre (la barra arriba) tampoco gana: el pez no sube tanto. */
     int hold_wins = 0;
