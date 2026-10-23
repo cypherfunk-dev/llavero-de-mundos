@@ -722,7 +722,7 @@ compostera acepta los restos...). `make alpha` ejecuta los tests y **14 días de
   fotogramas, 45 despertares, 96 comprobaciones, **0 violaciones**; 466 sucesos en el diario (el diario circular pisó 20); Pesca:
   17 lanzamientos, 16 pescados y 1 cancelado con B; 5 de los 6 peces y 15 de 16 huecos de la colección, incluido el **Koi Lunar de 134 cm
   con la luna llena**; la compostera creció y comió 3 manzanas; 8 sorpresas del Director (cartucho sucio, arranque falso, invasiones,
-  rebeldía, colapso, INSERT COIN...); 54 frases distintas en la Sala; guardado máximo **1.170 bytes** de 4.096. Sin lombriz extra
+  rebeldía, colapso, INSERT COIN...); 50 frases distintas en la Sala (54 mostradas); guardado máximo **1.170 bytes** de 4.096. Sin lombriz extra
   (`informe_alfa.txt`): 8 lanzamientos, 7 peces y 14 de 16 huecos.
 - **Capturas** de los 6 mundos a las 07:00, 12:30, 19:20 y 23:30 (`capturas/alfa/alfa_*.png`) y de la Pesca y la colección (`capturas/pesca/`),
   que se miraron una a una: el texto cabe, los sprites se leen (los peces a 16x12 y a la mitad en la estantería, las siluetas "???"),
@@ -915,5 +915,5 @@ Cosas que la spec deja abiertas y se resolvieron por lo más sencillo:
 - **`alpha` es un comando del headless** (y no un ejecutable aparte) para reutilizar sus gestos y relojes virtuales. Su opción `stock` (una
   lombriz extra cada mañana) es un atajo declarado para ejercitar la pesca sin esperar a que el universo dé lombrices; los números "sin ayuda" están al lado.
 - **Bugs encontrados por el camino** (y arreglados): el mapa de sucesos de las frases no incluía los de pesca (el test de la Sala los vio mudos);
-  el headless usaba un `Rng` sin sembrar (un bucle sin fin en `rng_below`) hasta que `fish` y `alpha` lo sembraron; un array de mi propio test de determinismo se
-  desbordaba (lo vio el análisis de lo que hacían las acciones, no ASan: se agrandó); y el diario se salía de la pantalla con nombres largos (se recorta).
+  el headless usaba un `Rng` sin sembrar (un bucle sin fin en `rng_below`) hasta que `fish` y `alpha` lo sembraron; un array de mi propio test de determinismo (40 acciones, hacían falta 48) se
+  desbordaba y el test fallaba de forma rara (se agrandó); y el diario se salía de la pantalla con nombres largos (se recorta).

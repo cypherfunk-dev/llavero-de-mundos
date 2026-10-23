@@ -113,7 +113,7 @@ static void start_cast(GameState *gs, const WorldCtx *ctx)
         world_toast(ctx, msg, 3200);
         break;
     case CAST_NO_WORM:
-        world_toast(ctx, "Sin lombrices, la pesca\nes solo meditación.", 3200);
+        world_toast(ctx, "Sin lombrices, la pesca es solo meditación.", 3200);
         break;
     }
 }
@@ -616,11 +616,11 @@ static void strip(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx)
         what = buf;
         break;
     }
-    case PESCA_BITE: what = S.plan.idx == FISH_LEGEND ? "¡¡ALGO BRILLA!!" : "¡PICA!"; break;
+    case PESCA_BITE: what = S.plan.idx == FISH_LEGEND ? "¡¡BRILLA!!" : "¡PICA!"; break;
     case PESCA_FIGHT: what = "Mantén A: sube"; break;
     case PESCA_RESULT: what = "A: seguir"; break;
     default:
-        what = gs->actions_used[ctx->index] >= LLV_PESCA_ACTIONS ? "Estanque en reposo" : "A: lanzar caña";
+        what = gs->actions_used[ctx->index] >= LLV_PESCA_ACTIONS ? "Hoy, descanso" : "A: lanzar caña";
         break;
     }
     gfx_text(fb, 3, WATER_BOTTOM + 1, what, C_WHITE);

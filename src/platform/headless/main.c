@@ -354,7 +354,7 @@ static int fish_play(Sim *s, FishSkill skill, const char *shot)
     }
     int won = pesca_phase() == PESCA_RESULT ? pesca_result()->won : 0;
     if (pesca_phase() == PESCA_RESULT) {
-        idle(s, 700);
+        idle(s, 1000); /* la tarjeta ignora los toques de los primeros 0,9 s: así no se cierra sin querer */
         if (shot) {
             char name[96];
             snprintf(name, sizeof(name), "%s_tarjeta", shot);

@@ -767,6 +767,7 @@ static void test_engine_messages(void)
     gesture(&e, BTN_A, now, &ms, 80);
     CHECK(has(e.toast, "Sin lombrices"));
     CHECK(has(e.toast, "meditación"));
+    CHECK(!strchr(e.toast, '\n')); /* el motor lo parte en líneas */
     CHECK_EQ(pesca_phase(), PESCA_IDLE);
     CHECK_EQ(e.gs.actions_used[WORLD_PESCA], 0);
     /* Se puede seguir: B cambia de mundo y vuelve. */
