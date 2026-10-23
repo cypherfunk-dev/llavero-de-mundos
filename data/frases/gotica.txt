@@ -59,3 +59,6 @@
 [sinacciones, gotica]  Hoy el silencio y yo tenemos asuntos pendientes. Vuelve mañana.
 [invasion, gotica]  Me he perdido buscando un cementerio. Esto tiene demasiadas flores. Me quedo, supongo.
 [invasion, gotica]  Aquí hay tanta luz que casi me da por sonreír. Casi.
+
+# Fase 5: la Pesca (spec §4.5). Comentan el diario: lombriz gastada, pez, pez escapado, legendario y basura.
+[evento:legendario, gotica]  {evento}. La luna sabía que ibas a venir. Yo también, pero no lo digo.

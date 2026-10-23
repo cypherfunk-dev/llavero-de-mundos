@@ -7,6 +7,7 @@
 
 #include "../../core/director.h"
 #include "../../core/engine.h"
+#include "../../core/fish.h"
 #include "../../core/garden.h"
 #include "../../core/habits.h"
 #include "../../core/pet.h"
@@ -67,6 +68,7 @@ typedef struct {
 } Sim;
 
 static Sim *g_sim; /* para el observador de frases */
+static int do_grab(Sim *s, const char *name);
 
 static void on_said(void *user, int speaker, int kind, bool picaro, const char *text)
 {
@@ -100,6 +102,8 @@ static void track(Sim *s)
         s->ev_hist[d->kind]++;
         if (d->kind == EV_ITEM_USED && d->a < ITEM_COUNT)
             s->items_used[d->a]++;
+        if (d->kind == EV_CAST) /* cada lanzamiento gasta una lombriz */
+            s->items_used[ITEM_LOMBRIZ]++;
     }
     s->ev_seen = g->diary_total;
 }
@@ -249,7 +253,7 @@ static void goto_pet(Sim *s)
     if (s->e.gs.pet.kind == PET_NONE)
         choose_pet(s, PET_HONGO);
     cobertizo_ui_reset();
-    for (int guard = 0; guard < 8 && !cobertizo_on_pet(&s->e.gs); guard++)
+    for (int guard = 0; guard < 16 && !cobertizo_on_pet(&s->e.gs); guard++)
         tap(s, BTN_A);
 }
 
@@ -298,6 +302,58 @@ static void look(Sim *s, int which)
 }
 
 static const char *const EV_LABEL[EV_KIND_COUNT];
+
+/* ---------- la Pesca (fase 5) ---------- */
+
+typedef enum { SKILL_NONE, SKILL_PERFECT, SKILL_HUMAN } FishSkill;
+
+/* Lanza la caña (A) y juega el minijuego como lo haría esa jugadora. Devuelve 1 si pescó algo, 0 si
+ * se escapó y -1 si no se pudo lanzar (sin lombriz o sin lanzamientos). Si 'shot' no es NULL, hace
+ * dos capturas: a mitad de pelea (NOMBRE_pelea) y con la tarjeta del resultado (NOMBRE_tarjeta). */
+static int fish_play(Sim *s, FishSkill skill, const char *shot)
+{
+    goto_world(s, WORLD_PESCA);
+    for (int guard = 0; guard < 400 && pesca_phase() == PESCA_RESULT; guard++)
+        frame(s, 20, 0, false);
+    uint32_t casts = s->e.gs.fish.casts;
+    tap(s, BTN_A);
+    if (s->e.gs.fish.casts == casts)
+        return -1;
+    FishGame hist[16];
+    int n = 0;
+    bool shot_fight = false;
+    for (int guard = 0; guard < 12000; guard++) {
+        const FishGame *g = pesca_game();
+        bool hold = false;
+        if (g && skill != SKILL_NONE) {
+            hist[n++ % 16] = *g;
+            const FishGame *view = skill == SKILL_HUMAN && n > 12 ? &hist[(n - 12) % 16] : g;
+            hold = fishgame_ai(view);
+            if (skill == SKILL_HUMAN && rng_below(&s->rng, 100) < 3)
+                hold = !hold;
+        }
+        if (g && shot && !shot_fight && n == 80) {
+            char name[96];
+            snprintf(name, sizeof(name), "%s_pelea", shot);
+            do_grab(s, name);
+            shot_fight = true;
+        }
+        frame(s, 20, hold ? BTN_A : 0, false);
+        if (pesca_phase() == PESCA_RESULT || (pesca_phase() == PESCA_IDLE && guard > 5))
+            break;
+    }
+    int won = pesca_phase() == PESCA_RESULT ? pesca_result()->won : 0;
+    if (pesca_phase() == PESCA_RESULT) {
+        idle(s, 700);
+        if (shot) {
+            char name[96];
+            snprintf(name, sizeof(name), "%s_tarjeta", shot);
+            do_grab(s, name);
+        }
+        tap(s, BTN_A); /* cierra la tarjeta */
+    }
+    return won;
+}
 
 /* Resumen de lo que pasó en el día (sin contar lo rutinario: despertares, bolsa, tus acciones). */
 static void day_summary(Sim *s, uint32_t *prev, char *out, size_t n)
@@ -370,7 +426,8 @@ static const char *const EV_LABEL[EV_KIND_COUNT] = {
     [EV_PET_GEN] = "mascota: generación", [EV_PET_CARE] = "cuidados", [EV_PET_WORD] = "palabra del hongo",
     [EV_PET_SPORES] = "esporas", [EV_PET_COMPOST] = "compostera come",
     [EV_VISITOR] = "visitas a la Sala", [EV_HABIT] = "hábitos cumplidos", [EV_WALK] = "paseos largos",
-    [EV_PATIENCE] = "bono de paciencia",
+    [EV_PATIENCE] = "bono de paciencia", [EV_CAST] = "lanzamientos de caña", [EV_FISH] = "peces pescados",
+    [EV_FISH_LOST] = "peces escapados", [EV_FISH_LEGEND] = "peces legendarios", [EV_FISH_JUNK] = "basuras pescadas",
 };
 
 static void stats(const Sim *s)
@@ -840,6 +897,10 @@ static void usage(const char *p)
            "  week DIAS      una semana de uso: varias miradas al día, charlas, preguntas y sorpresas\n"
            "  salastats      estadísticas de la Sala (tras week);  dumpfrases ARCHIVO  volcado de todas las frases\n"
            "  sala           resumen del estado de la Sala;  led  mira el LED de aviso con el llavero dormido\n"
+           "Pesca (fase 5):\n"
+           "  fish none|perfect|human     lanza la caña y juega el minijuego (nunca pulsa / perfecto / humano torpe)\n"
+           "  catch IDX CM                (pruebas) apunta ese pez (0-5, 6-9 basuras) con ese tamaño como pescado\n"
+           "  fishshot SKILL NOMBRE       igual, y captura NOMBRE_pelea y NOMBRE_tarjeta\n"
            "Música (fase 4):\n"
            "  weather N | sky N   clima (0 despejado 1 lluvia 2 viento 3 nieve) y cielo (0 nada 1 estrella 2 arcoíris)\n"
            "  musicseed S    semilla de la melodía (0..65535), sin mutaciones;  music  describe lo que suena\n"
@@ -892,6 +953,7 @@ int main(int argc, char **argv)
     s.battery = 80;
     g_sim = &s;
     phrase_set_observer(on_said, &s);
+    rng_seed(&s.rng, seed, 99); /* la "persona" que usa el llavero (week y fish la reinician o la usan) */
     engine_init(&s.e, seed, s.now, s.ms);
     idle(&s, LLV_COLLAPSE_MS + 150);
 
@@ -953,6 +1015,19 @@ int main(int argc, char **argv)
             if (it != ITEM_NONE && !state_bag_add(g, it))
                 g->bag[g->bag_count - 1] = (uint8_t)it;
             g->prepared = (uint8_t)it;
+        } else if (!strcmp(c, "catch") && m2) {
+            /* (pruebas) apunta ese pez con ese tamaño como si lo hubieras pescado: catch IDX CM */
+            wake_if_needed(&s);
+            FishPlan pl = {(uint8_t)(atoi(argv[i + 1]) % FISH_TOTAL), (uint8_t)atoi(argv[i + 2]), 0, 0};
+            fish_resolve(&s.e.gs, &pl, true, NULL);
+            i += 2;
+        } else if ((!strcmp(c, "fish") && m1) || (!strcmp(c, "fishshot") && m2)) {
+            /* fish none|perfect|human: lanza la caña y juega. fishshot SKILL NOMBRE además captura. */
+            bool with_shot = c[4] == 's';
+            const char *sk_name = argv[++i];
+            FishSkill sk = !strcmp(sk_name, "none") ? SKILL_NONE : !strcmp(sk_name, "human") ? SKILL_HUMAN : SKILL_PERFECT;
+            int r = fish_play(&s, sk, with_shot ? argv[++i] : NULL);
+            printf("pesca: %s\n", r < 0 ? "no se pudo lanzar" : r ? "pescado" : "se escapó");
         } else if (!strcmp(c, "routine") && m1) {
             routine(&s, atoi(argv[++i]));
         } else if (!strcmp(c, "talk")) {

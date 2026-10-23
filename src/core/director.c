@@ -32,6 +32,8 @@ int director_pick_world(const GameState *gs)
         return WORLD_SALA;
     if (n & (1u << WORLD_COBERTIZO))
         return WORLD_COBERTIZO;
+    if (n & (1u << WORLD_PESCA)) /* lombriz recargada o luna llena esta noche */
+        return WORLD_PESCA;
     if (n & (1u << WORLD_JARDIN))
         return WORLD_JARDIN;
     return -1;
@@ -109,12 +111,13 @@ static int roll_arg(GameState *gs, int s)
 {
     switch (s) {
     case DS_AUSENCIA: {
-        static const uint8_t W[4] = {WORLD_SALA, WORLD_SALA, WORLD_JARDIN, WORLD_COBERTIZO};
-        return W[rng_below(&gs->rng, 4)];
+        static const uint8_t W[5] = {WORLD_SALA, WORLD_SALA, WORLD_JARDIN, WORLD_COBERTIZO, WORLD_PESCA};
+        return W[rng_below(&gs->rng, 5)];
     }
     case DS_INVASION: {
         int guest = GUESTS[rng_below(&gs->rng, 3)];
-        int world = rng_below(&gs->rng, 2) ? WORLD_JARDIN : WORLD_COBERTIZO;
+        static const uint8_t WORLDS_OPEN[3] = {WORLD_JARDIN, WORLD_COBERTIZO, WORLD_PESCA}; /* la Gótica en la pesca (spec §6) */
+        int world = WORLDS_OPEN[rng_below(&gs->rng, 3)];
         return world << 4 | guest;
     }
     case DS_REBELDIA:

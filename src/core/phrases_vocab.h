@@ -73,7 +73,9 @@ enum { DATE_NONE = 0, DATE_HALLOWEEN, DATE_VIERNES13, DATE_ANIO_NUEVO, DATE_NAVI
     X(PE_MASCOTA_PALABRA, 21, "mascota_palabra") X(PE_ESPORAS, 22, "esporas") \
     X(PE_COMPOSTERA_COME, 23, "compostera_come") X(PE_BOLSA_LLENA, 24, "bolsa_llena") \
     X(PE_OBJETO, 25, "objeto") X(PE_VISITA, 26, "visita") X(PE_HABITO, 27, "habito") \
-    X(PE_PASEO, 28, "paseo") X(PE_PACIENCIA, 29, "paciencia")
+    X(PE_PASEO, 28, "paseo") X(PE_PACIENCIA, 29, "paciencia") \
+    X(PE_CEBO, 30, "cebo") X(PE_PEZ, 31, "pez") X(PE_PEZ_ESCAPA, 32, "pez_escapa") \
+    X(PE_LEGENDARIO, 33, "legendario") X(PE_BASURA, 34, "basura")
 enum { PV_EVENTS(PV_ENUM) PE_END };
 #define PE_COUNT PE_END
 

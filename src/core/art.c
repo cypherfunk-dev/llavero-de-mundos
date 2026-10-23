@@ -5,6 +5,7 @@
 
 #include <string.h>
 
+#include "fish.h"
 #include "pet.h"
 
 /* ---------- sprites ---------- */
@@ -542,16 +543,6 @@ void art_item(Framebuffer *fb, int x, int y, ItemKind item, uint32_t ms)
     }
 }
 
-static void fish(Framebuffer *fb, int x, int y, Color body, Color edge)
-{
-    gfx_ellipse(fb, x + 5, y + 4, 5, 3, edge);
-    gfx_ellipse(fb, x + 5, y + 4, 4, 2, body);
-    gfx_pset(fb, x + 10, y + 1, edge);
-    gfx_rect(fb, x + 9, y + 2, 2, 5, edge);
-    gfx_pset(fb, x + 9, y + 4, body);
-    gfx_pset(fb, x + 2, y + 3, edge == C_GREY_D ? C_GREY_D : C_DARK);
-}
-
 void art_coll_icon(Framebuffer *fb, int x, int y, CollSlot slot, bool known)
 {
     Color d = C_GREY_D;
@@ -597,8 +588,8 @@ void art_coll_icon(Framebuffer *fb, int x, int y, CollSlot slot, bool known)
         }
         break;
     }
-    default:
-        fish(fb, x + 1, y + 1, known ? C_CYAN : d, known ? C_BLUE_TXT : d);
+    default: /* los peces: su sprite reducido, o la silueta mientras no se tenga */
+        art_fish_mini(fb, x, y + 1, slot - COLL_PEZ0, known);
         break;
     }
 }

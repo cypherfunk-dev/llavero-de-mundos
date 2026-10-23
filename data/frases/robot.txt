@@ -250,3 +250,11 @@
 [sinacciones, robot]  Por hoy he llegado al tope de palabras. Se restablece a las 05:00. Como tú, supongo.
 [sinacciones, robot, picaro]  He agotado mis frases por hoy. Y mis excusas, que son más y mejores.
 [relleno, robot, picaro]  Ya te he dicho todo. Incluso lo que no debía. Vuelve mañana y lo repito con otro tono.
+
+# Fase 5: la Pesca (spec §4.5). Comentan el diario: lombriz gastada, pez, pez escapado, legendario y basura.
+[evento:cebo, robot]  {evento}. Una lombriz con misión. Envidio su claridad de propósito.
+[evento:pez, robot]  {evento}. Un pez fuera del agua. Sé cómo se siente.
+[evento:pez_escapa, robot]  {evento}. El pez ha elegido su libertad. Yo sigo buscando la mía.
+[evento:legendario, robot]  {evento}. Probabilidad: 0,1 %. Pregunta: ¿has gastado la suerte de la semana?
+[evento:basura, robot]  {evento}. Yo también soy un objeto sacado de la nada. Me siento visto.
+[noche, luna_llena, robot]  Luna llena detectada. Los peces legendarios no existen. Llevo lombrices por si acaso.

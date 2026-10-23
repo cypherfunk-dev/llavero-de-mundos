@@ -259,3 +259,12 @@
 [sinacciones, abuela]  Hoy hemos hablado lo justo. Lo demás se guarda para otro día de té.
 [sinacciones, abuela, picaro]  Hoy ya he contado más de lo que debía. Y mañana, más todavía, pero con mejor luz.
 [relleno, abuela, picaro]  Si te cuento más, me tendrás que invitar a una copita. Mañana.
+
+# Fase 5: la Pesca (spec §4.5). Comentan el diario: lombriz gastada, pez, pez escapado, legendario y basura.
+[evento:cebo, abuela]  {evento}. Esa lombriz se fue como los buenos: trabajando.
+[evento:pez, abuela]  {evento}. Tu abuelo pescaba menos, pero mentía mejor.
+[evento:pez, abuela, picaro]  {evento}. Pez que pica, hombre que se enamora: misma técnica, distinto anzuelo.
+[evento:pez_escapa, abuela]  {evento}. Otra vez será, cariño. El mar no se va a ninguna parte.
+[evento:legendario, abuela]  {evento}. Pide un deseo, pero no me lo cuentes, que se gafa.
+[evento:basura, abuela]  {evento}. Todo se aprovecha. Hasta lo que no sirve sirve para el compost.
+[noche, luna_llena, abuela]  Con luna llena, dicen que pica el pez legendario. Yo solo digo que lleves lombrices.

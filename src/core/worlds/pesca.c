@@ -119,7 +119,8 @@ static void pesca_tap(GameState *gs, const WorldCtx *ctx)
         start_cast(gs, ctx);
         break;
     case PESCA_RESULT:
-        S.phase = PESCA_IDLE;
+        if (ctx->ms - S.t0 >= 900) /* al soltar A tras ganar no se cierra la tarjeta sin querer */
+            S.phase = PESCA_IDLE;
         break;
     default:
         break; /* lanzando, esperando o peleando: lo que cuenta es mantener A */
@@ -528,6 +529,9 @@ static void gauge(Framebuffer *fb, const WorldCtx *ctx)
     gfx_frame(fb, G_X, y_top, 12, y_bot - y_top, in ? C_WHITE : C_GREEN_D);
     /* el pez dentro del gauge */
     int fy = G_BOT - g->fpos * G_H / 1000;
+    static const int8_t HALO[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for (int k = 0; k < 4; k++) /* un halo blanco: el pez se ve sobre la zona verde y sobre el agua */
+        art_fish_mini_tint(fb, G_X + HALO[k][0], fy - 4 + HALO[k][1], S.plan.idx, C_WHITE);
     art_fish_mini(fb, G_X, fy - 4, S.plan.idx, true);
     /* medidor de captura */
     gfx_rect(fb, M_X - 1, G_TOP - 1, 5, G_H + 2, C_DARK);
@@ -542,7 +546,7 @@ static void card(Framebuffer *fb, const WorldCtx *ctx)
 {
     const FishInfo *f = fish_info(S.plan.idx);
     bool legend = S.won && S.res.legend;
-    int y = 52, h = 56;
+    int y = 48, h = 60;
     gfx_textbox(fb, 5, y, 110, h);
     if (legend && ((ctx->ms / 200) & 1))
         gfx_frame(fb, 5, y, 110, h, C_SUN);
@@ -553,7 +557,7 @@ static void card(Framebuffer *fb, const WorldCtx *ctx)
     if (!S.won) {
         gfx_text(fb, 50, y + 7, "¡Se escapó!", C_RED);
         gfx_text_wrap(fb, 50, y + 17, 62, f->name, C_DARK);
-        gfx_text_center(fb, y + 40, "Otra vez será.", C_GREY);
+        gfx_text_center(fb, y + 44, "Otra vez será.", C_GREY);
         return;
     }
     if (legend)
@@ -581,10 +585,10 @@ static void card(Framebuffer *fb, const WorldCtx *ctx)
     else if (S.res.joy)
         snprintf(extra, sizeof(extra), "Tu mascota sonríe");
     else
-        snprintf(extra, sizeof(extra), "Humor: %s", f->humor);
+        snprintf(extra, sizeof(extra), "%s", f->humor);
     bool gift = S.res.gift_item || S.res.compost || S.res.joy;
-    gfx_rect(fb, 8, y + 41, 104, 11, gift ? C_BLUE_TXT : C_WHITE);
-    gfx_text_center(fb, y + 43, extra, gift ? C_WHITE : C_GREY);
+    gfx_rect(fb, 8, y + 46, 104, 10, gift ? C_BLUE_TXT : C_WHITE);
+    gfx_text_center(fb, y + 47, extra, gift ? C_WHITE : C_GREY);
 }
 
 static void strip(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx)

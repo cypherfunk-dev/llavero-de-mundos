@@ -50,3 +50,6 @@
 [sinacciones, gamer]  Misión diaria completada. Recompensa: silencio. Disponible de nuevo mañana.
 [invasion, gamer]  He tropezado con un glitch y he acabado aquí. Esto es una zona sin enemigos. Qué raro.
 [invasion, gamer]  Zona nueva desbloqueada. Música tranquila, cero enemigos. Sospechoso.
+
+# Fase 5: la Pesca (spec §4.5). Comentan el diario: lombriz gastada, pez, pez escapado, legendario y basura.
+[evento:legendario, gamer]  {evento}. ¡LEGENDARIO! Drop del 0,1 %. Pásame la captura.

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "fish.h"
 #include "garden.h"
 #include "timeutil.h"
 
@@ -460,6 +461,11 @@ static const char *const EVENT_TEXT[PE_COUNT][EVN] = {
     [PE_PASEO] = {"Caminaste un montón", "Diste un buen paseo", "Anduviste mucho"},
     [PE_PACIENCIA] = {"Pasaron cosas raras mientras no mirabas", "Mientras esperabas pasó algo raro",
                       "La espera trajo algo raro"},
+    [PE_CEBO] = {"Lanzaste la caña", "Una lombriz se fue a pescar", "Usaste una lombriz de cebo"},
+    [PE_PEZ] = {"Pescaste un pez", "Un pez picó el anzuelo", "Hay pescado nuevo"},
+    [PE_PEZ_ESCAPA] = {"Se te escapó un pez", "El pez se soltó", "Un pez se libró del anzuelo"},
+    [PE_LEGENDARIO] = {"Pescaste el pez legendario", "Picó el pez de la luna llena", "¡Pez legendario!"},
+    [PE_BASURA] = {"Pescaste una basura simpática", "Picó algo que no era un pez", "Sacaste del agua un trasto"},
 };
 
 static const char *const SEASON_LOW[4] = {"primavera", "verano", "otoño", "invierno"};
@@ -488,6 +494,12 @@ static void event_text(char *buf, size_t n, int pe, int variant, int a)
         snprintf(buf, n, "Descubriste: %s", state_coll_name((CollSlot)a));
     } else if (pe == PE_OBJETO && a > ITEM_NONE && a < ITEM_COUNT && variant == 0) {
         snprintf(buf, n, "Usaste %s", state_item_name((ItemKind)a));
+    } else if ((pe == PE_PEZ || pe == PE_LEGENDARIO) && a < FISH_SPECIES && variant == 0) {
+        snprintf(buf, n, "Pescaste: %s", fish_name(a));
+    } else if (pe == PE_PEZ_ESCAPA && a < FISH_TOTAL && variant == 0) {
+        snprintf(buf, n, "Se escapó: %s", fish_name(a));
+    } else if (pe == PE_BASURA && a < FISH_JUNK && variant == 0) {
+        snprintf(buf, n, "Pescaste: %s", fish_name(FISH_SPECIES + a));
     } else {
         snprintf(buf, n, "%s", EVENT_TEXT[pe][variant % EVN]);
     }

@@ -89,6 +89,7 @@ void sala_ui_reset(void);
 /* El menú de hábitos del Cobertizo (mantener A sobre la colección). */
 bool cobertizo_menu_open(void);
 bool cobertizo_on_pet(const GameState *gs);
+int cobertizo_on_fish(const GameState *gs);   /* especie de pez cuya ficha se ve, o -1 */
 bool cobertizo_breathing(void);
 
 /* Expuesto para tests: "Son las diez y veinticuatro de la mañana." */

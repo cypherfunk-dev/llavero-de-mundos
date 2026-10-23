@@ -174,7 +174,7 @@ static const Sprite *const SPRITES[FISH_TOTAL] = {
 static const Color PAL[FISH_TOTAL][3] = {
     {C_DARK, C_SKY_D0, C_SKY_D3},        /* Pez Lunes */
     {C_ROOF, C_ORANGE, C_CREAM},         /* Carpa Resignada */
-    {C_SKY_N2, C_GRASS_A, C_CREAM},      /* Trucha de Escarcha */
+    {C_SKY_N2, C_METAL, C_PINK},         /* Trucha de Escarcha */
     {C_DARK, C_GREY, C_GREY_L},          /* Bagre Insomne */
     {C_DARK, C_CYAN, C_MOON},            /* Pez Paraguas */
     {C_ROOF, C_SUN_CORE, C_PINK},        /* Koi Lunar */
@@ -202,6 +202,14 @@ void art_fish_mini(Framebuffer *fb, int x, int y, int idx, bool known)
         return;
     Color sil[3] = {C_GREY_D, C_GREY_D, C_GREY_D};
     gfx_sprite_stretch(fb, x, y, SPRITES[idx], known ? PAL[idx] : sil, 12, 9);
+}
+
+void art_fish_mini_tint(Framebuffer *fb, int x, int y, int idx, Color c)
+{
+    if (idx < 0 || idx >= FISH_TOTAL)
+        return;
+    Color pal[3] = {c, c, c};
+    gfx_sprite_stretch(fb, x, y, SPRITES[idx], pal, 12, 9);
 }
 
 void art_fish_big(Framebuffer *fb, int x, int y, int idx, bool known)

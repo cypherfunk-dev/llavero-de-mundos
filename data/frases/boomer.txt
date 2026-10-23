@@ -60,3 +60,6 @@
 [sinacciones, boomer]  A callar, que se hace tarde. Mañana, más batallitas y un café.
 [invasion, boomer]  Perdone, buscaba la farmacia de guardia. ¿Esto es un huerto? Qué agradable.
 [invasion, boomer]  Yo solo iba a por el pan. Pero ya que estoy aquí, echo un vistazo a las plantas.
+
+# Fase 5: la Pesca (spec §4.5). Comentan el diario: lombriz gastada, pez, pez escapado, legendario y basura.
+[evento:pez, boomer]  {evento}. En mis tiempos pescábamos con las manos. Y se nos escapaban igual.

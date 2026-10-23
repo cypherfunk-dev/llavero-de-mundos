@@ -134,6 +134,8 @@ bool fishgame_ai(const FishGame *g);
 void art_fish(Framebuffer *fb, int x, int y, int idx, bool known, bool flip);
 /* Versión de la estantería del Cobertizo (12x9 aprox.). */
 void art_fish_mini(Framebuffer *fb, int x, int y, int idx, bool known);
+/* La estantería, de un solo color (un contorno para que el pez se vea sobre cualquier fondo). */
+void art_fish_mini_tint(Framebuffer *fb, int x, int y, int idx, Color c);
 /* A doble tamaño (32x24), para la ficha y la tarjeta de lo pescado. */
 void art_fish_big(Framebuffer *fb, int x, int y, int idx, bool known);
 /* Silueta de un solo color: la sombra del pez bajo el agua. */

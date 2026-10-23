@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "../art.h"
+#include "../fish.h"
 #include "../garden.h"
 #include "../habits.h"
 #include "../input.h"
@@ -23,7 +24,9 @@
 #define PANEL_TOP 55
 
 /* Efímero, no se guarda. */
-static int cursor;                 /* 0..bag_count-1: bolsa; luego colección; luego mascota */
+static int cursor;                 /* 0..bag_count-1: bolsa; luego colección; luego un puesto por cada pez
+                                      de la colección (su ficha); luego la mascota */
+static uint8_t fish_flip;          /* mantener A sobre un pez cambia de página de la ficha */
 static bool breathing;
 static int choose = PET_HONGO;
 static uint32_t breath_last_ms;
@@ -47,7 +50,19 @@ static uint32_t hash(uint32_t v)
 
 static int positions(const GameState *gs)
 {
-    return gs->bag_count + 1 + (gs->pet.kind != PET_NONE ? 1 : 0);
+    return gs->bag_count + 1 + fish_collected(gs) + (gs->pet.kind != PET_NONE ? 1 : 0);
+}
+
+/* Especie de pez (0..FISH_SPECIES-1) cuya ficha está bajo el cursor, o -1. */
+static int on_fish(const GameState *gs)
+{
+    int c = cursor % positions(gs) - gs->bag_count - 1;
+    if (c < 0)
+        return -1;
+    for (int i = 0; i < FISH_SPECIES; i++)
+        if ((gs->collection >> (COLL_PEZ0 + i)) & 1 && c-- == 0)
+            return i;
+    return -1;
 }
 
 static bool on_pet(const GameState *gs)
@@ -70,6 +85,7 @@ void cobertizo_ui_reset(void)
     joy_until = 0;
     menu_open = false;
     menu_row = 0;
+    fish_flip = 0;
 }
 
 bool cobertizo_menu_open(void)
@@ -80,6 +96,11 @@ bool cobertizo_menu_open(void)
 bool cobertizo_on_pet(const GameState *gs)
 {
     return on_pet(gs);
+}
+
+int cobertizo_on_fish(const GameState *gs)
+{
+    return on_fish(gs);
 }
 
 bool cobertizo_breathing(void)
@@ -155,6 +176,10 @@ static void cobertizo_hold(GameState *gs, const WorldCtx *ctx)
         return;
     }
     int c = cursor % positions(gs);
+    if (on_fish(gs) >= 0) {
+        fish_flip ^= 1; /* la otra página de la ficha del pez */
+        return;
+    }
     if (on_pet(gs)) {
         CareResult r = pet_care(gs, ctx->index, msg, sizeof(msg));
         if (r == CARE_OK)
@@ -387,15 +412,20 @@ static void panel_bag(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx,
         if (total == 0)
             snprintf(buf, sizeof(buf), "Colección vacía");
         else {
-            int want = (int)(ctx->ms / 1400) % total, seen = 0, slot = 0;
-            for (int i = 0; i < COLL_COUNT; i++)
-                if ((gs->collection >> i) & 1) {
-                    if (seen++ == want) {
-                        slot = i;
-                        break;
+            /* nombra lo que hay en la estantería y, al final de la vuelta, cuántos peces llevas */
+            int want = (int)(ctx->ms / 1400) % (total + 1), seen = 0, slot = 0;
+            if (want == total) {
+                snprintf(buf, sizeof(buf), "Peces %d/%d", fish_collected(gs), FISH_SPECIES);
+            } else {
+                for (int i = 0; i < COLL_COUNT; i++)
+                    if ((gs->collection >> i) & 1) {
+                        if (seen++ == want) {
+                            slot = i;
+                            break;
+                        }
                     }
-                }
-            snprintf(buf, sizeof(buf), "%s", state_coll_name((CollSlot)slot));
+                snprintf(buf, sizeof(buf), "%s", state_coll_name((CollSlot)slot));
+            }
         }
     } else if (show_cursor && sel < gs->bag_count && ctx->ms % 4000 >= 2400) {
         /* sobre un objeto: alterna su nombre con la cuenta atrás (siempre a la vista) */
@@ -416,7 +446,8 @@ static void panel_collection(Framebuffer *fb, const GameState *gs, const WorldCt
         int x = 8 + (i % 8) * 13, y = 92 + (i / 8) * 13;
         gfx_rect(fb, x, y, 12, 11, C_SKY_D4);
         art_coll_icon(fb, x, y, (CollSlot)i, (gs->collection >> i) & 1);
-        gfx_frame(fb, x - 1, y - 1, 14, 13, C_GREY_L);
+        bool legend = i == COLL_PEZ0 + FISH_LEGEND && ((gs->collection >> i) & 1);
+        gfx_frame(fb, x - 1, y - 1, 14, 13, legend ? C_SUN : C_GREY_L); /* el objetivo final, en oro */
     }
     if (show_cursor && on_collection(gs) && ((ctx->ms / 300) & 1) == 0)
         bracket(fb, 4, 89, 112, 30, C_RED);
@@ -466,6 +497,36 @@ static void panel_ficha(Framebuffer *fb, const GameState *gs, const WorldCtx *ct
     gfx_rect(fb, 105, PANEL_TOP + 6, 3, 3, page_b ? C_BLUE_TXT : C_GREY_L);
     bool cared = gs->actions_used[ctx->index] >= LLV_PET_ACTIONS;
     gfx_text(fb, 9, PANEL_TOP + 53, page_b ? (cared ? "Mañana, más." : "Mantén: cuidar") : "A: respirar", C_GREY);
+}
+
+/* La ficha de un pez de la colección (bajo el cursor): dos páginas que alternan solas; mantener A
+ * cambia de página. Récord de tamaño, capturas, humor y comentario. */
+static void panel_fish(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx, int sp)
+{
+    const FishInfo *f = fish_info(sp);
+    bool page_b = ((ctx->ms / 3600) & 1) ^ fish_flip;
+    gfx_textbox(fb, 3, PANEL_TOP, 114, 65);
+    char buf[40];
+    if (!page_b) {
+        gfx_rect(fb, 9, PANEL_TOP + 6, 36, 28, C_WATER);
+        gfx_dither(fb, 9, PANEL_TOP + 6, 36, 4, C_WATER_L, C_WATER_HI);
+        art_fish_big(fb, 11, PANEL_TOP + 8, sp, true);
+        int lines = gfx_text_wrap(fb, 50, PANEL_TOP + 6, 62, f->name, C_BLUE_TXT);
+        snprintf(buf, sizeof(buf), "%d cm", gs->fish.best[sp]);
+        gfx_text(fb, 50, PANEL_TOP + 6 + lines * GFX_LINE_H + 1, buf, C_DARK);
+        gfx_text(fb, 9, PANEL_TOP + 36, "Récord de tamaño", C_GREY);
+        snprintf(buf, sizeof(buf), "Capturas: %d", gs->fish.caught[sp]);
+        gfx_text(fb, 9, PANEL_TOP + 44, buf, C_DARK);
+        if (sp == FISH_LEGEND)
+            gfx_text(fb, 110 - gfx_text_width("LEGENDARIO"), PANEL_TOP + 44, "LEGENDARIO", ((ctx->ms / 400) & 1) ? C_RED : C_ORANGE);
+        gfx_text(fb, 9, PANEL_TOP + 53, "Mantén: comentario", C_GREY);
+    } else {
+        snprintf(buf, sizeof(buf), "«%s»", f->humor);
+        gfx_text(fb, 9, PANEL_TOP + 5, buf, C_BLUE_TXT);
+        gfx_text_wrap(fb, 9, PANEL_TOP + 15, 100, f->quip, C_DARK);
+    }
+    gfx_rect(fb, 100, PANEL_TOP + 2, 3, 3, page_b ? C_GREY_L : C_BLUE_TXT);
+    gfx_rect(fb, 105, PANEL_TOP + 2, 3, 3, page_b ? C_BLUE_TXT : C_GREY_L);
 }
 
 static void panel_breath(Framebuffer *fb, const WorldCtx *ctx)
@@ -553,8 +614,11 @@ static void cobertizo_render(const GameState *gs, const WorldCtx *ctx, Framebuff
     if (on_pet(gs) || breathing)
         bracket(fb, PET_X - 17, 14, 35, SILL_Y - 12, (ctx->ms / 300) & 1 ? C_RED : C_SUN);
 
+    int fsp = on_fish(gs);
     if (breathing) {
         panel_breath(fb, ctx);
+    } else if (fsp >= 0) {
+        panel_fish(fb, gs, ctx, fsp);
     } else if (on_pet(gs)) {
         panel_ficha(fb, gs, ctx);
     } else {
