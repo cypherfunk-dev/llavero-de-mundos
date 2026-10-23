@@ -25,7 +25,7 @@ check-phrases:
 	$(PYTHON) tools/phrases2bin.py --selftest
 	$(PYTHON) tools/phrases2bin.py --check
 
-.PHONY: all test sim headless shots shots-reloj shots-jardin shots-sala phrases check-phrases clean
+.PHONY: all test sim headless music-tool shots shots-reloj shots-jardin shots-sala shots-musica music phrases check-phrases clean
 all: test headless sim
 
 $(B):
@@ -40,6 +40,9 @@ $(B)/llv_test_music: tests/test_music.c $(UTIL) $(CORE) $(wildcard src/core/*.h 
 $(B)/llv_headless: src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h src/hal/*.h src/platform/headless/*.h) | $(B)
 	$(CC) $(CFLAGS) src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) -lm -o $@
 
+$(B)/llv_music: src/platform/headless/music_tool.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
+	$(CC) $(CFLAGS) src/platform/headless/music_tool.c $(UTIL) $(CORE) -lm -o $@
+
 $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
@@ -51,8 +54,20 @@ test: $(B)/llv_tests $(B)/llv_test_music
 headless: $(B)/llv_headless
 sim: $(B)/llv_sim
 
-# Capturas del Reloj, del Jardín/Cobertizo (fase 2) y de la Sala con su semana simulada (fase 3).
-shots: shots-reloj shots-jardin shots-sala
+music-tool: $(B)/llv_music
+
+# Música (fase 4): 200 semillas a WAV de 30 s, informe con las métricas y los umbrales de "agradable",
+# la comparación con una melodía ingenua, un barrido de las 65.536 semillas y piano rolls y
+# espectrogramas de las primeras. Todo en capturas/musica/ (informe_musica.txt, musica_XXXX.wav...).
+music: $(B)/llv_music
+	mkdir -p $(SHOTS)/musica
+	$(B)/llv_music --seeds 200 --seconds 30 --out $(SHOTS)/musica --baseline --sweep 65536 --roll 8
+
+# Capturas del Reloj, del Jardín/Cobertizo (fase 2), de la Sala con su semana simulada (fase 3) y de la Música (fase 4).
+shots: shots-reloj shots-jardin shots-sala shots-musica
+
+shots-musica: $(B)/llv_headless
+	tools/shots_musica.sh $(B)/llv_headless $(SHOTS)
 
 shots-sala: $(B)/llv_headless
 	tools/shots_sala.sh $(B)/llv_headless $(SHOTS)

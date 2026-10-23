@@ -59,6 +59,13 @@ target_link_libraries(llv_hal_audio PUBLIC llv_core)
 add_executable(llv_headless src/platform/headless/main.c src/platform/headless/hal_audio_stub.c)
 target_link_libraries(llv_headless PRIVATE llv_util llv_hal_audio)
 
+# Banco de pruebas de la música: renderiza semillas a WAV, mide y juzga (make music).
+add_executable(llv_music src/platform/headless/music_tool.c)
+target_link_libraries(llv_music PRIVATE llv_util)
+add_custom_target(music COMMAND llv_music --seeds 200 --out ${CMAKE_BINARY_DIR}/musica --baseline --sweep 65536
+                  COMMAND_EXPAND_LISTS COMMENT "Renderizando semillas y midiendo la música")
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/musica)
+
 # Simulador SDL2, solo si hay SDL2.
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
