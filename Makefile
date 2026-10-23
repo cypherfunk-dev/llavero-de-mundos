@@ -37,6 +37,9 @@ $(B)/llv_tests: tests/test_main.c $(CORE) $(wildcard src/core/*.h) | $(B)
 $(B)/llv_test_music: tests/test_music.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
 	$(CC) $(CFLAGS) tests/test_music.c $(UTIL) $(CORE) -lm -o $@
 
+$(B)/llv_test_pesca: tests/test_pesca.c $(CORE) $(wildcard src/core/*.h) | $(B)
+	$(CC) $(CFLAGS) tests/test_pesca.c $(CORE) -lm -o $@
+
 $(B)/llv_headless: src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h src/hal/*.h src/platform/headless/*.h) | $(B)
 	$(CC) $(CFLAGS) src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) -lm -o $@
 
@@ -46,9 +49,10 @@ $(B)/llv_music: src/platform/headless/music_tool.c $(UTIL) $(CORE) $(wildcard sr
 $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
-test: $(B)/llv_tests $(B)/llv_test_music
+test: $(B)/llv_tests $(B)/llv_test_music $(B)/llv_test_pesca
 	$(B)/llv_tests
 	$(B)/llv_test_music
+	$(B)/llv_test_pesca
 	@if command -v $(PYTHON) >/dev/null 2>&1; then $(MAKE) --no-print-directory check-phrases; fi
 
 headless: $(B)/llv_headless

@@ -690,7 +690,7 @@ static void pesca_render(const GameState *gs, const WorldCtx *ctx, Framebuffer *
         break;
     case PESCA_FIGHT: {
         const FishGame *g = &S.game;
-        bx = 52 + (g->fpos - 420) * 34 / 520;
+        bx = 52 + (g->fpos - FISHGAME_MIN) * 34 / (FISHGAME_MAX - FISHGAME_MIN);
         by = BOB_Y + (fishgame_in_zone(g) ? 0 : (int)((ms / 80) & 1) * 2);
         sag = 0;
         in_water = true;

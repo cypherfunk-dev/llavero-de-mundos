@@ -41,6 +41,9 @@ add_test(NAME llv_tests COMMAND llv_tests)
 add_executable(llv_test_music tests/test_music.c)
 target_link_libraries(llv_test_music PRIVATE llv_util)
 add_test(NAME llv_test_music COMMAND llv_test_music)
+add_executable(llv_test_pesca tests/test_pesca.c)
+target_link_libraries(llv_test_pesca PRIVATE llv_core)
+add_test(NAME llv_test_pesca COMMAND llv_test_pesca)
 
 # Frases (spec §5): data/frases/*.txt -> src/core/phrases_data.c (se versiona ya generado).
 # `cmake --build build --target phrases` lo regenera; ctest comprueba que está al día.

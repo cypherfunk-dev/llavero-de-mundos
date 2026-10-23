@@ -104,7 +104,14 @@ int fish_total_caught(const GameState *gs);
 
 /* ---------- el minijuego ---------- */
 
-/* Posiciones 0..1000 (abajo = 0). Un paso son LLV_FISH_STEP_MS. */
+/* Posiciones 0..1000 (abajo = 0). Un paso son LLV_FISH_STEP_MS.
+ * El pez solo nada entre la zona más alta de la barra en reposo (abajo) y la más baja de la barra a
+ * tope (arriba): quien no pulsa nunca y quien mantiene A siempre pierden, por construcción. La zona
+ * mide FISHGAME_ZONE0 - 8 * dificultad (de 262 a 190). */
+#define FISHGAME_ZONE0 270
+#define FISHGAME_ZONE_MAX (FISHGAME_ZONE0 - 8)
+#define FISHGAME_MIN (FISHGAME_ZONE_MAX + 32)
+#define FISHGAME_MAX (1000 - FISHGAME_ZONE_MAX - 32)
 typedef struct {
     Rng rng;                 /* PRNG propio, sembrado una vez */
     int16_t fpos, fvel;      /* el pez */

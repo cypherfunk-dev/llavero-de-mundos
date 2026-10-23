@@ -215,8 +215,6 @@ void fish_resolve(GameState *gs, const FishPlan *plan, bool won, FishResult *out
 
 /* ---------- el minijuego ---------- */
 
-#define FG_MIN 420     /* el pez nunca baja de aquí: la barra en reposo (abajo) jamás lo alcanza */
-#define FG_MAX 940
 #define FG_METER_START 300
 
 typedef struct {
@@ -229,10 +227,10 @@ typedef struct {
 
 static const Temper TEMPER[FT_COUNT] = {
     [FT_CALM] = {3, 1, 50, 110, 0, 0, 0},
-    [FT_LAZY] = {2, 1, 90, 200, 220, 0, 0},
-    [FT_JUMPY] = {8, 3, 14, 36, 0, 0, 0},
-    [FT_ERRATIC] = {6, 2, 18, 60, 0, 2, 0},
-    [FT_DARTER] = {11, 5, 40, 90, 0, 0, 220},
+    [FT_LAZY] = {2, 1, 90, 200, 150, 0, 0},
+    [FT_JUMPY] = {6, 3, 14, 36, 0, 0, 0},
+    [FT_ERRATIC] = {5, 2, 18, 60, 0, 2, 0},
+    [FT_DARTER] = {9, 4, 40, 90, 0, 0, 140},
 };
 
 static int clampi(int v, int lo, int hi)
@@ -246,10 +244,10 @@ void fishgame_init(FishGame *g, uint32_t seed, int temper, int diff)
     rng_seed(&g->rng, seed, 0xF1);
     g->temper = (uint8_t)clampi(temper, 0, FT_COUNT - 1);
     g->diff = (uint8_t)clampi(diff, 1, 10);
-    g->zone = (int16_t)(360 - g->diff * 14); /* 346 .. 220: nunca llega al mínimo del pez */
+    g->zone = (int16_t)(FISHGAME_ZONE0 - g->diff * 8);
     g->bar = (int16_t)(g->zone / 2);
-    g->fpos = 600;
-    g->target = 600;
+    g->fpos = (int16_t)((FISHGAME_MIN + FISHGAME_MAX) / 2);
+    g->target = g->fpos;
     g->meter = FG_METER_START;
     g->state = FGS_PLAYING;
 }
@@ -270,8 +268,8 @@ static void fish_move(FishGame *g)
             if (t->jump)
                 tg = g->fpos + (int)rng_below(&g->rng, (uint32_t)(2 * t->jump + 1)) - t->jump;
             else
-                tg = FG_MIN + (int)rng_below(&g->rng, FG_MAX - FG_MIN + 1);
-            tg = clampi(tg, FG_MIN, FG_MAX);
+                tg = FISHGAME_MIN + (int)rng_below(&g->rng, FISHGAME_MAX - FISHGAME_MIN + 1);
+            tg = clampi(tg, FISHGAME_MIN, FISHGAME_MAX);
             int dist = tg > g->fpos ? tg - g->fpos : g->fpos - tg;
             if (dist >= t->far_min || tries >= 6)
                 break;
@@ -289,8 +287,8 @@ static void fish_move(FishGame *g)
         g->fvel = (int16_t)(g->fvel + (int)rng_below(&g->rng, (uint32_t)(2 * t->jitter + 1)) - t->jitter);
     g->fvel = (int16_t)clampi(g->fvel, -vmax, vmax);
     int p = g->fpos + g->fvel;
-    if (p < FG_MIN || p > FG_MAX) {
-        p = clampi(p, FG_MIN, FG_MAX);
+    if (p < FISHGAME_MIN || p > FISHGAME_MAX) {
+        p = clampi(p, FISHGAME_MIN, FISHGAME_MAX);
         g->fvel = 0;
     }
     g->fpos = (int16_t)p;
@@ -313,7 +311,7 @@ int fishgame_step(FishGame *g, bool hold)
     g->bar = (int16_t)b;
     fish_move(g);
     /* el medidor: sube dentro de la zona, baja fuera */
-    g->meter = (int16_t)(g->meter + (fishgame_in_zone(g) ? 6 : -(3 + g->diff / 3)));
+    g->meter = (int16_t)(g->meter + (fishgame_in_zone(g) ? 8 : -(3 + g->diff / 2)));
     if (g->steps < 65535)
         g->steps++;
     if (g->meter >= 1000) {

@@ -327,7 +327,7 @@ static int fish_play(Sim *s, FishSkill skill, const char *shot)
         bool hold = false;
         if (g && skill != SKILL_NONE) {
             hist[n++ % 16] = *g;
-            const FishGame *view = skill == SKILL_HUMAN && n > 12 ? &hist[(n - 12) % 16] : g;
+            const FishGame *view = skill == SKILL_HUMAN && n > 10 ? &hist[(n - 10) % 16] : g;
             hold = fishgame_ai(view);
             if (skill == SKILL_HUMAN && rng_below(&s->rng, 100) < 3)
                 hold = !hold;
