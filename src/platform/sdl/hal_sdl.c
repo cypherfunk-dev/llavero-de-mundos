@@ -10,8 +10,10 @@
 #include "../../util/imgout.h"
 #include "sim.h"
 
-#define AUDIO_RATE 22050
+#define AUDIO_RATE LLV_AUDIO_RATE
 #define TONE_QUEUE 16
+#define RING_SIZE 16384                  /* muestras de música en cola (potencia de 2) */
+#define AUDIO_TARGET (AUDIO_RATE / 8)    /* ~125 ms de música por delante */
 
 static SimConfig cfg;
 static SDL_Window *win;
@@ -33,7 +35,8 @@ static uint32_t sim_steps;
 static bool sim_batt_low;
 static bool led_on;
 
-/* Audio: cola de tonos consumida desde el callback. */
+/* Audio: cola de tonos y flujo de música, consumidos desde el callback y mezclados (los pitidos
+ * van por encima: el motor ya baja la música mientras suenan). */
 static SDL_AudioDeviceID audio_dev;
 static Tone queue[TONE_QUEUE];
 static int q_head, q_count;
@@ -41,6 +44,12 @@ static uint32_t tone_left;  /* muestras que quedan del tono actual */
 static uint32_t tone_total;
 static uint32_t tone_phase; /* contador de fase en 1/65536 de ciclo */
 static uint32_t tone_step;
+static int16_t ring[RING_SIZE];
+static uint32_t ring_r, ring_w;          /* contadores que solo crecen */
+static int volume = 60;                  /* 0..100, teclas + y - */
+static bool muted;
+static int vol_pending;                  /* 0 = nada que avisar; 1 = ha cambiado */
+static uint32_t nodev_ms;                /* sin dispositivo: reloj con el que simular lo que pediría */
 
 static const SimConfig *cfg_of(void *arg) { return (const SimConfig *)arg; }
 
@@ -62,7 +71,11 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
     (void)ud;
     int16_t *out = (int16_t *)stream;
     int n = len / 2;
+    int gain = muted ? 0 : volume;
     for (int i = 0; i < n; i++) {
+        int mix = 0;
+        if (ring_r != ring_w)
+            mix = ring[ring_r++ & (RING_SIZE - 1)];
         if (tone_left == 0 && q_count > 0) {
             Tone t = queue[q_head];
             q_head = (q_head + 1) % TONE_QUEUE;
@@ -70,19 +83,61 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
             tone_total = tone_left = (uint32_t)t.ms * AUDIO_RATE / 1000u;
             tone_step = (uint32_t)(((uint64_t)t.freq << 16) / AUDIO_RATE);
         }
-        if (tone_left == 0) {
-            out[i] = 0;
-            continue;
+        if (tone_left > 0) {
+            /* Onda cuadrada con un pequeño fundido final (sin clic). */
+            int amp = 3600;
+            uint32_t fade = AUDIO_RATE / 400; /* ~2,5 ms */
+            if (tone_left < fade)
+                amp = (int)(amp * tone_left / fade);
+            tone_phase += tone_step;
+            mix += (tone_phase & 0x8000u) ? amp : -amp;
+            tone_left--;
         }
-        /* Onda cuadrada con un pequeño fundido final (sin clic). */
-        int amp = 2600;
-        uint32_t fade = AUDIO_RATE / 400; /* ~2,5 ms */
-        if (tone_left < fade)
-            amp = (int)(amp * tone_left / fade);
-        tone_phase += tone_step;
-        out[i] = (int16_t)((tone_phase & 0x8000u) ? amp : -amp);
-        tone_left--;
+        mix = mix * gain / 100;
+        out[i] = (int16_t)(mix > 32767 ? 32767 : mix < -32768 ? -32768 : mix);
     }
+}
+
+size_t hal_audio_wanted(void)
+{
+    if (audio_dev) {
+        SDL_LockAudioDevice(audio_dev);
+        uint32_t fill = ring_w - ring_r;
+        SDL_UnlockAudioDevice(audio_dev);
+        return fill < AUDIO_TARGET ? AUDIO_TARGET - fill : 0;
+    }
+    /* Sin salida de audio: lo que el reloj habría consumido (la música sigue siendo lógica). */
+    uint32_t now = SDL_GetTicks();
+    if (nodev_ms == 0)
+        nodev_ms = now;
+    uint32_t dt = now - nodev_ms;
+    nodev_ms = now;
+    if (dt > 100)
+        dt = 100;
+    return (size_t)dt * AUDIO_RATE / 1000u;
+}
+
+void hal_audio_push(const int16_t *pcm, size_t n)
+{
+    if (!audio_dev)
+        return;
+    SDL_LockAudioDevice(audio_dev);
+    for (size_t i = 0; i < n && ring_w - ring_r < RING_SIZE; i++)
+        ring[ring_w++ & (RING_SIZE - 1)] = pcm[i];
+    SDL_UnlockAudioDevice(audio_dev);
+}
+
+/* Volumen del simulador (teclas + / - y M para silenciar). */
+bool sim_take_volume(char *label, int n)
+{
+    if (!vol_pending)
+        return false;
+    vol_pending = 0;
+    if (muted)
+        snprintf(label, (size_t)n, "Silencio");
+    else
+        snprintf(label, (size_t)n, "Volumen %d%%", volume);
+    return true;
 }
 
 void hal_sound_play(const Tone *tones, int count)
@@ -267,6 +322,19 @@ bool hal_input_poll(RawInput *in)
             case SDL_SCANCODE_F12:
             case SDL_SCANCODE_P: shot_flag = true; break;
             case SDL_SCANCODE_L: cfg.lcd = !cfg.lcd; break;
+            case SDL_SCANCODE_EQUALS:
+            case SDL_SCANCODE_KP_PLUS:
+                volume = volume >= 100 ? 100 : volume + 10;
+                muted = false;
+                vol_pending = 1;
+                break;
+            case SDL_SCANCODE_MINUS:
+            case SDL_SCANCODE_KP_MINUS:
+                volume = volume <= 0 ? 0 : volume - 10;
+                muted = false;
+                vol_pending = 1;
+                break;
+            case SDL_SCANCODE_M: muted = !muted; vol_pending = 1; break;
             default: break;
             }
         }

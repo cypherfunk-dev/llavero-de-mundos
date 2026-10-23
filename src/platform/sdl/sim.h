@@ -18,6 +18,8 @@ typedef struct {
 int64_t sim_warp_total(void);
 /* Segundos añadidos desde la última llamada (0 si ninguno); 'label' recibe un texto corto. */
 int64_t sim_take_warp(char *label, int n);
+/* true si el volumen (teclas + y -, M silencia) acaba de cambiar; 'label' recibe el aviso. */
+bool sim_take_volume(char *label, int n);
 /* Escribe la captura pendiente (tecla F12/P), si la hay, con el último fotograma. */
 void sim_write_shot(const char *path);
 

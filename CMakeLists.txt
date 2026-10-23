@@ -51,9 +51,13 @@ if(Python3_FOUND)
   add_test(NAME phrases_data_al_dia COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/phrases2bin.py --check)
 endif()
 
-# Herramienta headless: sin SDL.
-add_executable(llv_headless src/platform/headless/main.c)
-target_link_libraries(llv_headless PRIVATE llv_util)
+# Salida de audio común (hal_audio_pump): del motor a la salida de muestras de cada plataforma.
+add_library(llv_hal_audio STATIC src/hal/audio.c)
+target_link_libraries(llv_hal_audio PUBLIC llv_core)
+
+# Herramienta headless: sin SDL (su audio es de mentira: no suena, pero se puede grabar a WAV).
+add_executable(llv_headless src/platform/headless/main.c src/platform/headless/hal_audio_stub.c)
+target_link_libraries(llv_headless PRIVATE llv_util llv_hal_audio)
 
 # Simulador SDL2, solo si hay SDL2.
 find_package(SDL2 QUIET)
@@ -70,7 +74,7 @@ elseif(TARGET PkgConfig::SDL2)
 endif()
 if(LLV_SDL_TARGET)
   add_executable(llv_sim src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c)
-  target_link_libraries(llv_sim PRIVATE llv_util ${LLV_SDL_TARGET})
+  target_link_libraries(llv_sim PRIVATE llv_util llv_hal_audio ${LLV_SDL_TARGET})
   message(STATUS "SDL2 encontrado: se construye llv_sim")
 else()
   message(STATUS "SDL2 no encontrado: se omite llv_sim")

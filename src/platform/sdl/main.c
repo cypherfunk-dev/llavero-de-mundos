@@ -15,10 +15,11 @@ static void usage(const char *prog)
            "  --seed N     semilla del universo si no hay guardado\n"
            "  --lcd        empieza con la rejilla LCD\n"
            "  --mute       sin sonido\n"
+           "  --world N    abre ese mundo al arrancar (0 Reloj ... 3 Música; para probar)\n"
            "  --frames N   sale solo tras N fotogramas (pruebas)\n"
            "  --shot F     con --frames, escribe una captura PNG al salir\n"
            "Teclas: Z/J=A  X/K=B  S=agitar  1/2/3=+1h/+1d/+1sem  F12/P=captura\n"
-           "        W=camina 1000 pasos  4=batería baja  L=rejilla LCD  Esc=salir\n",
+           "        W=camina 1000 pasos  4=batería baja  L=rejilla LCD  +/-=volumen  M=silencio  Esc=salir\n",
            prog);
 }
 
@@ -27,6 +28,7 @@ int main(int argc, char **argv)
     SimConfig cfg = {"llavero.sav", 4, false, false, NULL};
     uint64_t seed = (uint64_t)time(NULL);
     long frames = -1;
+    int start_world = -1;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -48,6 +50,8 @@ int main(int argc, char **argv)
             cfg.lcd = true;
         } else if (!strcmp(a, "--mute")) {
             cfg.mute = true;
+        } else if (!strcmp(a, "--world") && more) {
+            start_world = atoi(argv[++i]);
         } else if (a[0] != '-') {
             cfg.save_path = a;
         } else {
@@ -66,6 +70,9 @@ int main(int argc, char **argv)
     bool resumed = hal_boot_engine(&engine, seed);
     fprintf(stderr, "%s (%s)\n", resumed ? "guardado cargado" : "universo nuevo", cfg.save_path);
 
+    if (start_world >= 0 && start_world < LLV_WORLD_COUNT && !engine.asleep)
+        engine.gs.current_world = (uint8_t)start_world;
+
     long n = 0;
     while (frames < 0 || n < frames) {
         uint32_t t0 = hal_clock_ms();
@@ -77,6 +84,9 @@ int main(int argc, char **argv)
         if (sim_take_warp(label, sizeof(label)) && !engine.asleep)
             engine_toast(&engine, label, hal_clock_ms(), 1200);
 
+        if (sim_take_volume(label, sizeof(label)) && !engine.asleep)
+            engine_toast(&engine, label, hal_clock_ms(), 1000);
+
         uint8_t battery;
         bool charging;
         uint32_t steps;
@@ -86,6 +96,7 @@ int main(int argc, char **argv)
         hal_led_set(out.led);
         if (out.tone_count)
             hal_sound_play(out.tones, out.tone_count);
+        hal_audio_pump(&engine); /* la música (también dormido: termina el fundido al callar) */
         if (out.save_now && !hal_save_engine(&engine))
             fprintf(stderr, "no se pudo guardar\n");
         hal_display_present(&engine.fb, out.screen_on);

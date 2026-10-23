@@ -6,6 +6,7 @@ B       := build/make
 
 CORE := $(sort $(wildcard src/core/*.c) $(wildcard src/core/worlds/*.c) src/core/phrases_data.c)
 UTIL := src/util/imgout.c src/util/wav.c src/util/musicstats.c
+HEADLESS_HAL := src/hal/audio.c src/platform/headless/hal_audio_stub.c
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
 SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
 SHOTS ?= capturas
@@ -36,11 +37,11 @@ $(B)/llv_tests: tests/test_main.c $(CORE) $(wildcard src/core/*.h) | $(B)
 $(B)/llv_test_music: tests/test_music.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
 	$(CC) $(CFLAGS) tests/test_music.c $(UTIL) $(CORE) -lm -o $@
 
-$(B)/llv_headless: src/platform/headless/main.c $(UTIL) $(CORE) $(wildcard src/core/*.h) | $(B)
-	$(CC) $(CFLAGS) src/platform/headless/main.c $(UTIL) $(CORE) -lm -o $@
+$(B)/llv_headless: src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h src/hal/*.h src/platform/headless/*.h) | $(B)
+	$(CC) $(CFLAGS) src/platform/headless/main.c $(HEADLESS_HAL) $(UTIL) $(CORE) -lm -o $@
 
-$(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
+$(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
 test: $(B)/llv_tests $(B)/llv_test_music
 	$(B)/llv_tests

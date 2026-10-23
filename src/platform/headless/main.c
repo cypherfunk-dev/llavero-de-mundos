@@ -14,6 +14,8 @@
 #include "../../core/talk.h"
 #include "../../core/timeutil.h"
 #include "../../util/imgout.h"
+#include "../../util/wav.h"
+#include "hal_audio_stub.h"
 
 #define MAX_GRAB 48
 #define MAX_LOG 6000
@@ -56,6 +58,12 @@ typedef struct {
     uint32_t surprise_hist[DS_COUNT];
     uint32_t world_open[LLV_WORLD_COUNT];
     uint32_t looks_sim;
+    /* Música (fase 4): el audio pasa por el mismo camino que en el simulador; aquí no suena, pero se
+     * puede grabar a WAV con rec / recstop. */
+    uint32_t audio_carry;     /* resto de muestras por ms */
+    int16_t *rec;             /* NULL = sin grabar */
+    size_t rec_n, rec_cap;
+    char rec_path[512];
 } Sim;
 
 static Sim *g_sim; /* para el observador de frases */
@@ -113,6 +121,26 @@ static void sample(Sim *s)
     }
 }
 
+#define REC_MAX_SECONDS 120
+
+static void on_audio(void *user, const int16_t *pcm, size_t n)
+{
+    Sim *s = user;
+    if (!s->rec)
+        return;
+    for (size_t i = 0; i < n && s->rec_n < s->rec_cap; i++)
+        s->rec[s->rec_n++] = pcm[i];
+}
+
+/* Lo que haría el bucle del simulador: el reloj pide muestras y el motor las produce. */
+static void audio_step(Sim *s, uint32_t dt)
+{
+    uint32_t total = s->audio_carry + dt * LLV_AUDIO_RATE;
+    hal_audio_stub_advance(total / 1000u);
+    s->audio_carry = total % 1000u;
+    hal_audio_pump(&s->e);
+}
+
 static void frame(Sim *s, uint32_t dt, uint8_t buttons, bool shake)
 {
     s->ms += dt;
@@ -122,6 +150,7 @@ static void frame(Sim *s, uint32_t dt, uint8_t buttons, bool shake)
     RawInput in = {buttons, shake};
     engine_set_body(&s->e, s->battery, s->charging, s->steps);
     s->out = engine_frame(&s->e, in, s->now, s->ms);
+    audio_step(s, dt);
     track(s);
 }
 
@@ -811,6 +840,10 @@ static void usage(const char *p)
            "  week DIAS      una semana de uso: varias miradas al día, charlas, preguntas y sorpresas\n"
            "  salastats      estadísticas de la Sala (tras week);  dumpfrases ARCHIVO  volcado de todas las frases\n"
            "  sala           resumen del estado de la Sala;  led  mira el LED de aviso con el llavero dormido\n"
+           "Música (fase 4):\n"
+           "  weather N | sky N   clima (0 despejado 1 lluvia 2 viento 3 nieve) y cielo (0 nada 1 estrella 2 arcoíris)\n"
+           "  musicseed S    semilla de la melodía (0..65535), sin mutaciones;  music  describe lo que suena\n"
+           "  rec ARCHIVO    empieza a grabar el audio (lo que sonaría) a un WAV;  recstop  lo cierra y lo escribe\n"
            "  info           imprime un resumen del estado\n",
            p);
 }
@@ -1045,6 +1078,46 @@ int main(int argc, char **argv)
                    (unsigned)s.e.gs.rare_unseen);
         } else if (!strcmp(c, "stats")) {
             stats(&s);
+        } else if (!strcmp(c, "weather") && m1) {
+            s.e.gs.weather = (uint8_t)(atoi(argv[++i]) & 3);
+        } else if (!strcmp(c, "sky") && m1) {
+            s.e.gs.sky = (uint8_t)(atoi(argv[++i]) % 3);
+            s.e.gs.sky_left = s.e.gs.sky ? 30 : 0;
+        } else if (!strcmp(c, "musicseed") && m1) {
+            s.e.gs.mus.seed = (uint16_t)strtoul(argv[++i], NULL, 0);
+            s.e.gs.mus.mut = 0;
+        } else if (!strcmp(c, "music")) {
+            const Music *m = &s.e.music;
+            if (music_active(m))
+                printf("música: #%04X +%u  %s  %s  %d BPM  %s / %s  paso %u (compás %u, vuelta %u)  ánimo %02X\n",
+                       m->seed, m->mut, music_mode_name(m->style.mode), "", m->style.bpm,
+                       music_prog_name(m->style.prog_a), music_prog_name(m->style.prog_b), (unsigned)m->pos,
+                       (unsigned)m->pos / 16, (unsigned)m->loops, m->mood);
+            else
+                printf("música: callada (guardado: #%04X +%u ánimo %02X)\n", s.e.gs.mus.seed, s.e.gs.mus.mut,
+                       s.e.gs.mus.mood);
+        } else if (!strcmp(c, "rec") && m1) {
+            free(s.rec);
+            s.rec_cap = (size_t)REC_MAX_SECONDS * LLV_AUDIO_RATE;
+            s.rec = malloc(s.rec_cap * sizeof(int16_t));
+            s.rec_n = 0;
+            snprintf(s.rec_path, sizeof(s.rec_path), "%s", argv[++i]);
+            if (!s.rec) {
+                rc = 1;
+            } else {
+                hal_audio_stub_set_sink(on_audio, &s);
+            }
+        } else if (!strcmp(c, "recstop")) {
+            if (!s.rec) {
+                fprintf(stderr, "recstop sin rec\n");
+                rc = 2;
+            } else {
+                hal_audio_stub_set_sink(NULL, NULL);
+                rc = wav_write(s.rec_path, s.rec, s.rec_n, LLV_AUDIO_RATE);
+                printf("%s (%zu muestras, %.1f s)\n", s.rec_path, s.rec_n, (double)s.rec_n / LLV_AUDIO_RATE);
+                free(s.rec);
+                s.rec = NULL;
+            }
         } else if (!strcmp(c, "info")) {
             info(&s);
         } else {

@@ -53,6 +53,20 @@ bool hal_storage_save(const uint8_t *buf, size_t len);
 /* Encola tonos (onda cuadrada, frecuencia en Hz y duración en ms) en orden. */
 void hal_sound_play(const Tone *tones, int count);
 
+/* ---------- audio: flujo de muestras (música, spec §4.4 y §11) ---------- */
+/* La música es PCM mono de 16 bits a LLV_AUDIO_RATE que el motor genera por trozos
+ * (engine_audio_render). La plataforma lo manda al altavoz (PWM en la RP2350, SDL en el simulador)
+ * mezclado con los pitidos de hal_sound_play, que mandan sobre la música (el motor la baja mientras
+ * suenan). Si no hay salida de audio, hal_audio_wanted() sigue devolviendo lo que habría pedido el
+ * reloj y hal_audio_push() tira las muestras: así el visualizador del mundo Música sigue vivo. */
+/* Cuántas muestras conviene producir ahora para no quedarse sin datos (0 = ninguna: cola llena). */
+size_t hal_audio_wanted(void);
+/* Encola n muestras. Si no cabe todo, descarta las que sobran. */
+void hal_audio_push(const int16_t *pcm, size_t n);
+/* Bucle común (src/hal/audio.c): pide al motor lo que la salida quiere y se lo manda. Llamar una
+ * vez por fotograma, también con el llavero dormido (así termina el fundido al dormir). */
+void hal_audio_pump(Engine *e);
+
 /* ---------- arranque común ---------- */
 /* Carga el guardado con la HAL y arranca el motor: engine_resume si es válido,
  * engine_init con 'seed' si no. Devuelve true si reanudó un guardado. */
