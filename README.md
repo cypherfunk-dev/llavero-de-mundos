@@ -7,7 +7,8 @@ completa está en [`llavero-mundos-spec.md`](llavero-mundos-spec.md).
 
 Este repositorio contiene el motor en C11 portable (`src/core`), la capa HAL
 (`src/hal`), el simulador SDL2 (`src/platform/sdl`), una herramienta headless
-para generar capturas y simular semanas de uso (`src/platform/headless`) y los
+para generar capturas y simular semanas de uso (`src/platform/headless`), el
+banco de frases (`data/frases`) con su conversor (`tools/phrases2bin.py`) y los
 tests (`tests/`).
 
 ## Compilar
@@ -25,12 +26,16 @@ O con make (salida en `build/make/`):
 make test      # compila y pasa los tests
 make sim       # simulador SDL2 (necesita SDL2: pkg-config sdl2)
 make headless  # herramienta sin SDL
-make shots     # capturas del Reloj y de la semana simulada del Jardín en capturas/
+make shots     # capturas del Reloj, del Jardín y de la Sala (con su semana simulada) en capturas/
+make phrases   # regenera src/core/phrases_data.c a partir de data/frases/*.txt
 ```
 
-`make shots` llama a `make shots-reloj` y `make shots-jardin` (este último ejecuta
-`tools/shots_jardin.sh`: una semana de uso normal, las cuatro estaciones, un día de
-clima variado, los mensajes, la elección de mascota y la ficha de las cuatro mascotas).
+`make shots` llama a `make shots-reloj`, `make shots-jardin` (`tools/shots_jardin.sh`: una
+semana de uso normal, las cuatro estaciones, un día de clima variado, los mensajes, la
+elección de mascota y la ficha de las cuatro mascotas) y `make shots-sala`
+(`tools/shots_sala.sh`: la Sala con cada personaje, las preguntas, las fechas especiales,
+todas las sorpresas, el ❗ del HUD, los ajustes de hábitos y la semana de la fase 3 con su
+volcado de frases). `make test` también comprueba que el binario de frases está al día.
 
 ## Simulador
 
@@ -44,14 +49,17 @@ build/llv_sim otra.sav --scale 6 --seed 42
 | Z / J | Botón A (toque: acción; mantener: acción secundaria) |
 | X / K | Botón B (toque: siguiente mundo; mantener: anterior) |
 | Z+X | A+B: diario "mientras no mirabas…" |
-| S | Agitar (despierta) |
+| S | Agitar (despierta; arregla el cartucho sucio; en la Sala, alguien protesta) |
+| W | Camina 1.000 pasos (el podómetro del IMU simulado) |
+| 4 | Alterna batería baja / normal (simulada) |
 | 1 / 2 / 3 | Máquina del tiempo: +1 hora / +1 día / +1 semana |
 | F12 / P | Captura PNG en el directorio actual |
 | L | Rejilla LCD |
 | Esc | Salir (guarda el estado) |
 
 El llavero se duerme a los 20 s sin tocarlo: pantalla negra y guardado; se
-despierta con A, B o S. Opciones: `--save F`, `--scale N`, `--seed N`, `--lcd`,
+despierta con A, B o S. Si mientras dormía pasó algo raro, un **punto naranja** en la esquina
+de la ventana parpadea (el LED de aviso, spec §3.2). Opciones: `--save F`, `--scale N`, `--seed N`, `--lcd`,
 `--mute`, `--frames N` (sale solo) y `--shot F` (captura al salir). Para probarlo
 sin pantalla: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/llv_sim --frames 60`.
 
@@ -98,6 +106,142 @@ nunca muere. El hongo suelta esporas y nacen hongos en el Jardín; la semilla da
 Semilla a la bolsa a veces; la compostera se come las manzanas podridas y devuelve una
 lombriz; la piedra jamás dice nada.
 
+## La Sala (fase 3)
+
+### 👵🤖 Controles
+
+| Gesto | Qué hace |
+|---|---|
+| **A** (toque) | **Dar pie**: un personaje dice algo (o la siguiente línea de una escena a dos voces). Si estaban escribiendo, completa la frase. Con una pregunta en pantalla, es **sí** |
+| **A** (mantener) | **Tocar el timbre**: entra otro visitante (Gótica, Gamer o Boomer). Con una pregunta en pantalla, es **no** |
+| **Agitar** | Alguien protesta ("¿Puedes dejar de agitarme? Me mareo.") |
+| **B B A A B A B A** | **Código secreto**: el Gato de Schrödinger (ver abajo) |
+
+Máximo **2 conversaciones nuevas al día** (se reponen a las 05:00; se ven en el HUD como en
+el Jardín). Seguir una escena o contestar una pregunta no gasta ninguna. Con el límite
+gastado, A da una **frase de relleno** con gracia ("Ya te conté todo por hoy. Mañana más.",
+"Mis reservas de pensamiento se han agotado. Como el universo, eventualmente.") y el
+timbre suena a hueco: nunca se bloquea.
+
+El texto sale **letra a letra** con un pitido por letra de **distinto tono por personaje**
+(por `FrameOut.tones`: la Abuela grave y cálida, Unidad-7 metálico, la Gótica oscura, el
+Gamer agudo...). Las caras cambian de expresión (hablando, contento, pícaro, sorprendido,
+dormido) y la Sala se viste en **Halloween**, **viernes 13**, **Año Nuevo** y **Navidad**
+(cada fecha trae a su visitante a media tarde). De madrugada (00:00–05:00) la Abuela y
+Unidad-7 salen en pijama y con gorro y te mandan a la cama.
+
+**Preguntas de sí o no** (toque = sí, mantener = no): se guardan en la memoria (2 bits por
+pregunta, 14 preguntas) y los personajes se acuerdan: "¿Has regado tus plantas esta semana?"
+→ no → tres días después "¿Y esas plantas que no regaste? Dime que siguen vivas. O que son
+compost: ambas son dignas." Una pregunta de las de siempre no se repite antes de 20 días.
+
+**Comentan el universo**: el diario marca los sucesos nuevos (manzana que cae o se pudre,
+brote, hongo, rana, lluvia, arcoíris, bolsa llena, visitas, hábitos cumplidos...) y la
+Abuela y Unidad-7 los comentan una vez ("{evento}. Para el compost, como todo en la vida.").
+
+### 🎲 El Director de Sorpresas (spec §6 y §7)
+
+En cada mirada (mínimo 10 minutos desde la anterior: mirar muchas veces seguidas no da nada
+nuevo y los personajes lo notan, "Me miraste hace 2 minutos…") tira un dado con `gs->rng`:
+**80 % normal, 15 % comentario del universo, 4 % sorpresa, 1 % algo muy raro**. Nunca dos
+sorpresas seguidas; **seguro de pena**: si pasa un día entero sin sorpresa, la siguiente mirada
+trae una. También **elige el mundo que se abre al despertar** (el que tiene novedades) y
+marca con un **❗ rojo** del HUD los demás mundos con novedades (bajo la hora, un marcador por mundo).
+
+| Sorpresa | Qué pasa |
+|---|---|
+| Cartucho sucio | Imagen rota y "CARTUCHO SUCIO. SOPLA.": los botones no hacen nada hasta que **agitas** (o a los 9 s) |
+| Arranque falso | Una consola noventera arranca 2 s con su logo |
+| Mundo ausente | La Sala, el Jardín o el Cobertizo vacíos con el cartel "Salí. Vuelvo en 5 min." |
+| Invasión | Un visitante en el Jardín o el Cobertizo, con su bocadillo |
+| Cuarta pared | "Me has mirado 15 veces hoy. Esto ya es obsesión." / "Son las 3:47. ¿Todo bien?" |
+| Calendario | El visitante de la fecha (Halloween: la Gótica) habla en la Sala |
+| Rebeldía | El primer B no cambia de mundo: "No. Me gusta aquí." |
+| Colapso cuántico | Varias versiones del mundo superpuestas antes de quedarse con una |
+| INSERT COIN (raro) | Pantalla de arcade: pulsa A y la moneda da un Deseo |
+| Gato de Schrödinger (raro) | Asoma de su caja (≈ 1 de cada 300 miradas) |
+
+**Código secreto `B B A A B A B A`** (toques de menos de 1,5 s entre sí, desde cualquier
+mundo): el motor lo detecta sin tocar la gramática de gestos. Mientras tecleas, las B cambian
+de mundo y las A hacen lo suyo; si el código se completa, el motor **deshace** lo que hicieron
+las A (guarda el estado antes de la primera A del código): no se gasta ni un objeto ni una
+conversación. Empieza en la Sala con el Gato diciendo algo ("Estoy aquí. O no. Depende de
+quién mire.").
+
+### ⏳ Bono de paciencia y LED de aviso (spec §3.2)
+
+Mientras el llavero **duerme**, cada macro tick puede traer un suceso raro extra (un Deseo,
+un arcoíris o una estrella fugaz, una flor rara, una rana o un hongo) con un riesgo que
+**crece con la espera** hasta el tope de 12 h (`LLV_PATIENCE_*`): de media, 1 % tras 1 h,
+12 % tras 4 h, 29 % tras 8 h y 36 % tras 12 h o más (esperar más no suma). Despierto, o mirando a
+cada rato, no hay bono. Cuando pasa algo raro mientras duerme, `FrameOut.led` parpadea
+(150 ms cada 5 s) y la HAL lo enciende (`hal_led_set`; en el simulador, un punto naranja en
+la ventana); al mirar se apaga.
+
+### 🌱 Buenos hábitos (spec §3.3)
+
+Se preguntan con humor, **máximo 2 al día**, nunca el mismo dos veces el mismo día (llamar,
+una vez por semana), **cumplirlos ayuda al universo y no cumplirlos no castiga nada**
+(solo cambia la reacción), y **se puede mentir**: a veces ("Detecto una mentira. No tengo
+sensores para eso, pero la detecto.") y, si dices que dormiste bien habiendo mirado el
+llavero de madrugada, siempre.
+
+| Hábito | Cómo lo sabe | Qué pasa si lo cumples |
+|---|---|---|
+| Beber agua | Pregunta (8–22 h) | **Llueve un poco** en el Jardín (2 h; nieva en invierno), sin gastar objetos |
+| Dormir bien | Mirada de madrugada + pregunta por la mañana (5–12 h) | Racha de noches: con 3 seguidas, **amanecer especial en el Reloj** (06:00–08:30) |
+| Respirar | Respirar con la mascota (3 respiraciones) o pregunta | La **mascota se alegra** (una vez al día) |
+| Soltar el móvil | Pregunta (18–24 h) | Baja un pájaro al Jardín |
+| Salir al sol | Pregunta (10–17 h) | Florecen dos capullos |
+| Llamar a alguien | Pregunta semanal | La Abuela te manda una Semilla |
+| Moverse | **Podómetro** del IMU (`HAL: steps`, simulado con W) | Un **paseo largo** (6.000 pasos) suma **un objeto extra** (máx. 1 al día) y alimenta la compostera |
+
+**Activarlos y desactivarlos:** en el **Cobertizo**, lleva el cursor a la **colección**
+(toca A hasta que se marque) y **mantén A**: se abre **AJUSTES**. Allí A (toque) baja de fila
+y A (mantener) cambia la casilla; la última fila es "Salir". Hay una casilla por hábito y la
+del **modo apto para la abuela** (solo humor blanco). Un hábito desactivado ni se pregunta ni
+se menciona. Por defecto están todos activos.
+
+### 📝 Frases: formato y cómo añadir más
+
+Un `.txt` por personaje en `data/frases/` (`abuela`, `robot`, `gotica`, `gamer`, `boomer`,
+`gato`, `sistema` y `escenas`), una frase por línea con etiquetas de contexto (spec §5.2):
+
+```
+[noche, abuela]                    A estas horas solo trabajan las lechuzas y los hongos.
+[ausencia>3d, robot]               {ausencia} sin verme. He reflexionado sobre la soledad. Conclusión: 404.
+[evento:manzana_podrida, abuela]   {evento}. Para el compost, como todo en la vida.
+[luna_llena, gotica]               Esta noche no me esperes despierta.
+[halloween, abuela, picaro]        He tallado una calabaza. Se parece a mi cuñado, pero sin la mala leche.
+[pregunta:plantas, abuela]         ¿Has regado tus plantas esta semana?
+[no:plantas, abuela]               Ay, criatura. Aquí no hay reproches, solo una regadera esperando.
+[retoma:plantas, resp:plantas=no, abuela]   ¿Y esas plantas que no regaste?...
+[escena:existir:1, robot]          Si nadie me mira, ¿existo?
+[escena:existir:2, abuela]         Si nadie te mira, riegas los tomates. Vamos.
+```
+
+Cada frase lleva **un personaje**, como mucho **un propósito** (`relleno`, `sinacciones`,
+`cuarta_pared`, `rebeldia`, `timbre`, `invasion`, `pregunta:Q`, `si:Q`, `no:Q`, `mentira:Q`,
+`retoma:Q`, `escena:ID:N`, `glitch`, `cartel`...; sin propósito es charla, y con `evento:` es
+comentario del diario) y las **condiciones** que quieras: franja (`madrugada`, `manana`,
+`mediodia`, `tarde`, `noche`), día (`lunes`...`domingo`, `finde`), estación, `luna_llena`,
+`luna_nueva`, fechas (`halloween`, `viernes13`, `anio_nuevo`, `navidad`; `cumple` queda para
+la fase 7), relación (`ausencia>3d`, `ausencia<10m`, `miradas>8`, `racha>3d`, `afin_alta`,
+`afin_baja`, `resp:Q=si|no`), cuerpo (`agitar`, `bateria_baja`, `cargando`), universo
+(`evento:X`, `lluvia`, `jardin_lleno`, `mascota:hongo`, `coleccion>5`, `bolsa_llena`...) y
+`habito:X` (la frase se calla si desactivas ese hábito). Se cumplen todas a la vez.
+`picaro` marca el humor irónico (el modo apto-abuela lo omite). Huecos: `{ausencia}`,
+`{evento}`, `{hora}`, `{miradas}`, `{racha}`, `{estacion}`, `{dia}`, `{mascota}`, `{pasos}`.
+El vocabulario completo (con los ids) está en `src/core/phrases_vocab.h`.
+
+Para añadir frases: edita los `.txt` y ejecuta `make phrases` (o
+`python3 tools/phrases2bin.py`). El script valida todo (etiquetas, huecos que se puedan
+rellenar, cada pregunta con su sí y su no, una versión blanca de cada grupo, escenas completas)
+y escribe `src/core/phrases_data.c`, un array `const` que el firmware lee directamente de la
+flash (XIP). `make check-phrases` o `ctest` comprueban que el generado está al día; los tests
+del motor validan además que todo se dibuja con la fuente y cabe en la caja (6 líneas de 18
+letras; las preguntas, 5).
+
 ## Herramienta headless
 
 Reloj virtual, gestos y capturas sin dependencias:
@@ -121,6 +265,21 @@ motor entero (gestos, sueño, catch-up), `stats` cuenta cosas por especie, event
 diario y objetos usados, `give N` (solo para escenas de prueba) deja un objeto preparado
 y `shotheld NOMBRE MS` captura con A pulsado.
 
+Para la fase 3 (`--help` los lista todos):
+
+```sh
+# una semana de uso: 4-7 miradas al día, charlas, preguntas, sorpresas; estadísticas y
+# volcado de todas las frases que salieron
+build/llv_headless --date "2026-10-22 08:00" --seed 7 pet 1 week 7 salastats dumpfrases frases.txt
+# escenas de prueba
+build/llv_headless --date "2026-10-31 18:00" world 2 visitor gotica say gotica shot halloween
+build/llv_headless world 0 code shot gato          # el código secreto
+build/llv_headless world 2 surprise glitch shot sucio
+```
+
+`talk`, `yes`/`no`, `bell`, `drain`, `ask PREGUNTA`, `say PERSONAJE`, `visitor`, `surprise`,
+`grandma`, `habit`, `steps`, `battery`, `streak`, `news`, `led`, `pool` y `sala` completan la herramienta.
+
 ## Estado por fases (spec §14)
 
 - [x] **Fase 0:** motor, HAL, simulador SDL, controles, estado con límites fijos,
@@ -128,7 +287,8 @@ y `shotheld NOMBRE MS` captura con A pulsado.
 - [ ] Fase 1: hardware (RP2350, botones, altavoz, IMU, sueño).
 - [x] **Fase 2:** Jardín + bolsa + Cobertizo + mascota (ver abajo el gate de la semana
   simulada).
-- [ ] Fase 3: La Sala, Director, hábitos.
+- [x] **Fase 3:** La Sala (personajes, preguntas, memoria, diario), Director, hábitos y bono
+  de paciencia (ver el gate de la fase 3).
 - [ ] Fase 4: Música generativa.
 - [ ] Fase 5: Pesca y colección.
 - [ ] Fase 6: carcasa y ajuste de números.
@@ -156,6 +316,39 @@ visto, y a partir de la tercera o cuarta semana ya habrás completado la colecci
 rarísimo. Lo que mantiene el interés a largo plazo serán las estaciones (cada 3 meses), la
 renovación de árboles viejos (~200 días), los peces de la fase 5 y los comentarios de la
 Sala (fase 3). Los números 🧪 de `config.h` y `garden_data.c` están para seguir ajustándose.
+
+## Gate de la fase 3: una semana en la Sala
+
+*"Te hace reír al menos una vez al día, y alguna vez te hace beber agua."* La risa no se puede
+medir offline; lo que sí se mide es si hay material para intentarlo y cómo se reparte.
+`make shots-sala` simula 7 días de una persona con 4-7 miradas al día (algunas de madrugada,
+un día casi sin mirar), que charla, contesta preguntas, agita el llavero y pulsa lo que le
+pide cada sorpresa, y vuelca todo en `capturas/semana_sala_frases.txt` y
+`capturas/semana_sala_stats.txt`. Sobre 8 semillas distintas (1-8):
+
+- **Frases distintas vistas en 7 días: 45-57** (de 47-63 mostradas). Se repiten 2-13 (3-20 %),
+  casi siempre frases de relleno o la pregunta de siempre; **dentro de las últimas 30 solo
+  se repite alguna vez y solo cuando el banco no da para más** (una pregunta de hábito con
+  pocos personajes presentes, o el texto fijo de una sorpresa).
+- **Sorpresas: 3-6 por semana** (0,4-0,9 al día): el seguro de pena da una al menos cada 2
+  días de uso. **Preguntas: ~1 al día** (0-2), nunca más de 2 de hábitos.
+- **Mundo que abre el Director:** Sala 45-65 %, Jardín 20-40 %, Cobertizo 3-18 %, Reloj nunca
+  (abre donde hay novedades; la Sala las tiene con cada visitante, comentario o sorpresa).
+- **Picardía:** 11-22 % de lo que sale (el banco: 22 %).
+
+**Honestamente:** una semana está bien servida (en cualquier momento pueden salir ~40 charlas
+de cada residente y ~13-20 de cada visitante, y solo caben 2 conversaciones al día), pero el
+banco tiene 709 frases y el objetivo final es 150-300 por residente: ahora la Abuela tiene
+~120 de charla y ~250 en total y Unidad-7, ~115 y ~240, pero los visitantes solo 20-26 de charla
+cada uno y el Gato 24. Con 2 conversaciones al día, en 3 meses se agotaría casi toda la charla
+una vez, y la antirrepetición de 30 hashes (unas dos semanas) deja que vuelvan. Lo que más
+falta: **más relleno** (ahora 17 por residente y 3-5 por visitante: es lo que más se repite si insistes), **más
+variantes de las preguntas de hábitos** (cada una vuelve cada pocos días con 3 maneras de
+decirla), **un comentario más por suceso y personaje** (cada suceso tiene una sola frase
+por personaje), más escenas (12) y retomas (solo 4 preguntas se retoman), más líneas de
+calendario y de estaciones, y 30-40 frases más para cada visitante. Lo del agua depende de ti:
+la pregunta, la lluvia y la tos de la Abuela están, pero que beba agua de verdad no lo puede
+comprobar un simulador.
 
 ## Decisiones de implementación
 
@@ -200,3 +393,53 @@ Cosas que la spec deja abiertas y se resolvieron por lo más sencillo:
   contador de milisegundos pasaba de 2^31 (~25 días encendido), y entonces aparecían el
   diario, el mensaje y la tarjeta del Reloj sin que nadie los pidiera. Ahora un temporizador
   a cero significa "nada pendiente".
+
+### Decisiones de la fase 3
+
+- **Frases:** un binario sin comprimir (709 frases, ~53 KB: cabe de sobra en los ~175 KB
+  presupuestados) con tabla de desplazamientos, para acceso directo desde la flash. Ver
+  `phrases.h` para el formato. El vocabulario (personajes, propósitos, condiciones, sucesos,
+  preguntas, hábitos) vive en `phrases_vocab.h` y lo leen el motor y el conversor, así que
+  añadir una pregunta o un suceso es una fila en un solo sitio. `phrases_data.c` se versiona
+  ya generado (compilar no exige Python); `make test` y `ctest` verifican que está al día.
+- **Selección:** gana más peso la frase con más condiciones (así las de Halloween o de la
+  racha se notan), y el visitante que está en la sala habla más que los residentes. Una
+  frase se descarta si su hash está entre los últimos 30; si no queda ninguna, sale la que más
+  tiempo lleva sin salir.
+- **La conversación vive en `GameState`** (frase, quién habla, huecos, escena, pregunta) y no
+  en variables de los mundos: así se guarda, y las tiradas con `gs->rng` salen idénticas con
+  los mismos gestos. Solo la máquina de escribir (cuánto va escrito) es visual. Un gesto
+  durante la escritura solo termina la frase; por eso el momento de empezar a escribir se fija
+  al gesto y no al fotograma.
+- **Director:** la tirada solo ocurre si han pasado 10 minutos desde la mirada anterior (y no en
+  la primera de todas); "nunca dos seguidas" cuenta entre tiradas. El mundo que se abre sigue
+  este orden: el de la sorpresa; el Jardín si hubo algo raro; la Sala; el Cobertizo; el Jardín.
+  Se queda donde estaba si no hay novedades. El seguro de pena usa días del llavero (05:00).
+- **Novedades (❗):** Jardín (cae o se pudre una manzana, brote, árbol, hongo, flor rara, semilla
+  de pájaro, rana, arcoíris, estrella, abono), Cobertizo (la mascota crece, nace, habla, suelta
+  esporas o come) y Sala (llega un visitante). Se apagan al entrar al mundo.
+- **Bono de paciencia:** el riesgo por tick crece linealmente con el tiempo dormido hasta
+  12 h (1,2 % por tick al llegar al tope) y se corta ahí. Para que el catch-up siga siendo
+  función del estado, el chip "se despierta" mientras duerme solo para avanzar el mundo
+  (`engine_frame` dormido llama a `engine_advance`); en el RP2350 será el temporizador.
+- **LED:** lo raro son arcoíris, estrella fugaz, rana, flor rara, nueva generación de la
+  mascota y el propio bono. Parpadea 150 ms cada 5 s mientras haya algo sin ver.
+- **HAL:** `RawInput` no cambia (los tests de las fases 0 y 2 siguen valiendo); el cuerpo
+  (batería, cargando, pasos) entra con `engine_set_body()` y la HAL lo lee con
+  `hal_body_read()`. El simulador inventa batería 87 % (tecla 4: 12 %), sin carga y pasos con
+  la tecla W. El LED sale por `hal_led_set()`.
+- **Hábitos:** todos activados por defecto; franjas, esperas y efectos en `habits.c`. "Respirar
+  juntos" en el Cobertizo cambia lo que decía la fase 2 ("solo visual"): ahora, con 3
+  respiraciones completas, la mascota se alegra, pero **una vez al día**, para que no se pueda
+  "farmear" humor. Dormir mal o no responder solo reinicia un contador. El podómetro: si la
+  bolsa está llena, el objeto del paseo espera a que haya sitio.
+- **Estado:** `SAVE_VERSION` 3; `GameState` ocupa 1.584 bytes en memoria y el guardado 1.150
+  (muy por debajo de los 4 KB de §10; `LLV_SAVE_MAX` sigue en 2.048). Los guardados de las
+  fases 0 y 2 se rechazan y se crea un universo nuevo.
+- **Arte:** los personajes son tres capas de sprites de 3 colores + transparente (cabeza, torso,
+  piernas o falda) con dos frames y una cara dibujada encima según la expresión. Se añadieron
+  colores al final de la paleta maestra (piel, pelo canoso, metal, crema, lámpara, calabaza...) y
+  la `ö` a la fuente (para Schrödinger).
+- **Bug encontrado por el test de determinismo:** `habit_steps` (que corre en cada fotograma)
+  gastaba un dado con la bolsa llena; el azar dependía de cuántos fotogramas hubiera habido.
+  Ahora comprueba antes si cabe y no consume azar si no.

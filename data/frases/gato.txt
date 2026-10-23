@@ -32,3 +32,4 @@
 [gato, picaro]  Estoy en superposición de mimos: pides y no pides a la vez. Elijo que sí.
 [noche, gato, picaro]  De noche mi probabilidad de acabar en tu cama aumenta. Y la de acabar en la nevera, también.
 [gato]  Me llamo Schrödinger. O quizá no. Depende de si has abierto la caja.
+[relleno, gato]  Me quedo sin estados que mostrar. Mañana traeré unos cuantos nuevos, probablemente.

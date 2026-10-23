@@ -46,3 +46,7 @@
 [afin_alta, gamer, picaro]  Eres mi jugador 2 favorito. No se lo digas a mi mando.
 [evento:flor_rara, gamer, picaro]  {evento}. Objeto legendario. Lo quiero. No lo vendas.
 [racha>6d, gamer, picaro]  {racha} días seguidos. Eso es un logro. Y no el tipo que se publica, el tipo que se disfruta.
+[relleno, gamer]  No me quedan puntos de vida de charla. Descansa, y mañana jugamos otra partida.
+[sinacciones, gamer]  Misión diaria completada. Recompensa: silencio. Disponible de nuevo mañana.
+[invasion, gamer]  He tropezado con un glitch y he acabado aquí. Esto es una zona sin enemigos. Qué raro.
+[invasion, gamer]  Zona nueva desbloqueada. Música tranquila, cero enemigos. Sospechoso.

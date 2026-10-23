@@ -3577,7 +3577,9 @@ static void run_sala_script(Engine *e, bool dense, int slot)
         steps += rng_below(&r, 3500);
         engine_set_body(e, (uint8_t)(rng_below(&r, 3) ? 70 : 12), rng_below(&r, 8) == 0, steps);
         engine_frame(e, shake, now, ms);
-        wait_ms(e, now, &ms, 2400, dense);
+        /* tras despertar, hasta que se acabe de escribir lo que el Director haya puesto: un toque a
+         * mitad de una frase solo la completa, y eso depende de los milisegundos exactos del toque */
+        wait_ms(e, now, &ms, 4200, dense);
         if (e->gs.dir.cur == DS_GLITCH) {
             engine_frame(e, shake, now, ms += 33);
             wait_ms(e, now, &ms, 600, dense);

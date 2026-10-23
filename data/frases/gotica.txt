@@ -55,3 +55,7 @@
 [afin_alta, gotica, picaro]  Contigo hasta el negro me parece menos oscuro. No lo repitas, que pierdo el prestigio.
 [afin_baja, gotica, picaro]  No te preocupes por ignorarme. Tengo cuatro diarios y todos hablan de ti.
 [evento:hongo, gotica, picaro]  {evento}. Lo admiro: crece donde nadie mira y huele a drama.
+[relleno, gotica]  Mis palabras se han acabado por hoy. Quédate con el eco, que es lo mejor que tienen.
+[sinacciones, gotica]  Hoy el silencio y yo tenemos asuntos pendientes. Vuelve mañana.
+[invasion, gotica]  Me he perdido buscando un cementerio. Esto tiene demasiadas flores. Me quedo, supongo.
+[invasion, gotica]  Aquí hay tanta luz que casi me da por sonreír. Casi.

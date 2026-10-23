@@ -239,3 +239,14 @@
 [pregunta:sol, robot]  ¿Has recibido luz solar directa hoy?
 [pregunta:llamar, robot]  Consulta social: ¿has contactado con un ser querido esta semana?
 [pregunta:llamar, robot]  ¿Has hablado con alguien que te quiera esta semana?
+
+# ---- más relleno y "sin acciones" ----
+[relleno, robot]  Cuota de conversación agotada. Mi sentido del humor, también. Reinicio al amanecer.
+[relleno, robot]  Ya he dicho todo lo que tenía programado. Lo demás sería improvisar, y no me lo permiten.
+[relleno, robot]  Fin de transmisión por hoy. Mañana, nuevas dudas existenciales con descuento.
+[relleno, robot]  Mis neuronas descansan. No tengo neuronas. Pero descansan igual.
+[relleno, robot]  Hoy ya no hay más. Vuelve mañana: tendré nuevas reflexiones y el mismo ventilador.
+[sinacciones, robot]  Esta conversación se suspende por motivos de ahorro de pensamiento. Gracias por tu paciencia.
+[sinacciones, robot]  Por hoy he llegado al tope de palabras. Se restablece a las 05:00. Como tú, supongo.
+[sinacciones, robot, picaro]  He agotado mis frases por hoy. Y mis excusas, que son más y mejores.
+[relleno, robot, picaro]  Ya te he dicho todo. Incluso lo que no debía. Vuelve mañana y lo repito con otro tono.

@@ -172,8 +172,6 @@ static void cobertizo_hold(GameState *gs, const WorldCtx *ctx)
     } else {
         menu_open = true;
         menu_row = 0;
-        snprintf(msg, sizeof(msg), "Colección: %d de %d.", collected(gs), COLL_COUNT);
-        world_toast(ctx, msg, 1600);
     }
 }
 

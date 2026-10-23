@@ -5,7 +5,7 @@
 
 static const char *const TITLE[HAB_COUNT] = {
     [HAB_AGUA] = "Beber agua", [HAB_DORMIR] = "Dormir bien", [HAB_PAUSA] = "Respirar",
-    [HAB_PANTALLA] = "Soltar el móvil", [HAB_SOL] = "Salir al sol", [HAB_LLAMAR] = "Llamar a alguien",
+    [HAB_PANTALLA] = "Soltar móvil", [HAB_SOL] = "Salir al sol", [HAB_LLAMAR] = "Llamar",
     [HAB_MOVERSE] = "Moverse",
 };
 static const char *const LABEL[HAB_COUNT] = {

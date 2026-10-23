@@ -48,7 +48,7 @@ run --date "2026-10-22 12:00" --seed 3 pet 2 world 5 wait 3600 tap a tap a tap a
     tap a tap a hold a wait 200 shot ajustes_habitos2 > /dev/null
 
 # 8) LED de aviso: tras una ausencia larga con el llavero dormido.
-run --date "2026-10-22 12:00" --seed 11 pet 1 sleep adv 3d led sala > "$OUT/led_aviso.txt"
+run --date "2026-10-22 12:00" --seed 1 pet 1 sleep adv 3d led sala > "$OUT/led_aviso.txt"
 cat "$OUT/led_aviso.txt"
 
 # 9) La semana del gate: 7 días con 4-7 miradas, charlas, preguntas y sorpresas.

@@ -248,3 +248,14 @@
 [pregunta:sol, abuela]  ¿Has salido a la calle a que te dé la luz?
 [pregunta:llamar, abuela]  ¿Has hablado con alguien querido esta semana?
 [pregunta:llamar, abuela]  ¿Has llamado a alguien que te quiera, esta semana?
+
+# ---- más relleno y "sin acciones": para cuando insistes y ya está todo dicho ----
+[relleno, abuela]  Ya te lo conté todo, criatura. Si sigo, me repito, y a mi edad eso ya es ley.
+[relleno, abuela]  Hoy ya me has sacado todas las palabras. Mañana, con el té recién hecho, más.
+[relleno, abuela]  Se acabó la charla por hoy. Ve a mirar las plantas, que ellas no hablan y no se cansan.
+[relleno, abuela]  Basta de cháchara por hoy. Mañana te cuento lo de la vecina del tercero.
+[relleno, abuela]  Estoy en mitad de un punto de ganchillo. Mañana seguimos con la conversación.
+[sinacciones, abuela]  Pregunta mañana, mi vida. Las buenas historias, como el bizcocho, necesitan reposo.
+[sinacciones, abuela]  Hoy hemos hablado lo justo. Lo demás se guarda para otro día de té.
+[sinacciones, abuela, picaro]  Hoy ya he contado más de lo que debía. Y mañana, más todavía, pero con mejor luz.
+[relleno, abuela, picaro]  Si te cuento más, me tendrás que invitar a una copita. Mañana.

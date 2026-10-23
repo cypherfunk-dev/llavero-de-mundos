@@ -56,3 +56,7 @@
 [afin_alta, boomer, picaro]  Tú sí que eres buena gente. Y yo, en los ochenta, era buena gente con bigote.
 [evento:abeja, boomer, picaro]  {evento}. De flor en flor y nadie le dice nada. Qué suerte.
 [racha>6d, boomer, picaro]  {racha} días seguidos viniendo. Yo en mis tiempos llamaba a la puerta y ni así me abrían tanto.
+[relleno, boomer]  Hoy ya hemos charlado bastante. Mañana te cuento lo del tío Ramón, que da para otro rato.
+[sinacciones, boomer]  A callar, que se hace tarde. Mañana, más batallitas y un café.
+[invasion, boomer]  Perdone, buscaba la farmacia de guardia. ¿Esto es un huerto? Qué agradable.
+[invasion, boomer]  Yo solo iba a por el pan. Pero ya que estoy aquí, echo un vistazo a las plantas.
