@@ -8,8 +8,8 @@ completa está en [`llavero-mundos-spec.md`](llavero-mundos-spec.md).
 Este repositorio contiene el motor en C11 portable (`src/core`), la capa HAL
 (`src/hal`), el simulador SDL2 (`src/platform/sdl`), una herramienta headless
 para generar capturas y simular semanas de uso (`src/platform/headless`), el
-banco de frases (`data/frases`) con su conversor (`tools/phrases2bin.py`) y los
-tests (`tests/`).
+banco de frases (`data/frases`) con su conversor (`tools/phrases2bin.py`), la música
+generativa (`src/core/music.c`, con su banco de pruebas `llv_music`) y los tests (`tests/`).
 
 ## Compilar
 
@@ -26,7 +26,8 @@ O con make (salida en `build/make/`):
 make test      # compila y pasa los tests
 make sim       # simulador SDL2 (necesita SDL2: pkg-config sdl2)
 make headless  # herramienta sin SDL
-make shots     # capturas del Reloj, del Jardín y de la Sala (con su semana simulada) en capturas/
+make shots     # capturas del Reloj, del Jardín, de la Sala (con su semana simulada) y de la Música en capturas/
+make music     # 200 semillas a WAV, informe de métricas, comparación y barrido de las 65.536 semillas (capturas/musica/)
 make phrases   # regenera src/core/phrases_data.c a partir de data/frases/*.txt
 ```
 
@@ -35,7 +36,11 @@ semana de uso normal, las cuatro estaciones, un día de clima variado, los mensa
 elección de mascota y la ficha de las cuatro mascotas) y `make shots-sala`
 (`tools/shots_sala.sh`: la Sala con cada personaje, las preguntas, las fechas especiales,
 todas las sorpresas, el ❗ del HUD, los ajustes de hábitos y la semana de la fase 3 con su
-volcado de frases). `make test` también comprueba que el binario de frases está al día.
+volcado de frases). `make test` también comprueba que el binario de frases está al día y pasa los
+tests de la música (`tests/test_music.c`, otro ejecutable: `llv_test_music`; `ctest` ejecuta los dos).
+`make shots-musica` (`tools/shots_musica.sh`) son las capturas del mundo Música a distintas horas, con
+lluvia, estrella fugaz y arcoíris, con varias semillas, mutando y con semilla nueva, más 30 s de audio
+en WAV de tres momentos.
 
 ## Simulador
 
@@ -55,13 +60,16 @@ build/llv_sim otra.sav --scale 6 --seed 42
 | 1 / 2 / 3 | Máquina del tiempo: +1 hora / +1 día / +1 semana |
 | F12 / P | Captura PNG en el directorio actual |
 | L | Rejilla LCD |
+| + / - | Volumen del simulador (10 % por pulsación; empieza al 60 %) |
+| M | Silencio (otra vez, vuelve el volumen) |
 | Esc | Salir (guarda el estado) |
 
 El llavero se duerme a los 20 s sin tocarlo: pantalla negra y guardado; se
 despierta con A, B o S. Si mientras dormía pasó algo raro, un **punto naranja** en la esquina
 de la ventana parpadea (el LED de aviso, spec §3.2). Opciones: `--save F`, `--scale N`, `--seed N`, `--lcd`,
-`--mute`, `--frames N` (sale solo) y `--shot F` (captura al salir). Para probarlo
-sin pantalla: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/llv_sim --frames 60`.
+`--mute`, `--frames N` (sale solo), `--shot F` (captura al salir) y `--world N` (abre ese mundo al
+arrancar, p. ej. `--world 3` para la Música). Para probarlo sin pantalla ni altavoz:
+`SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/llv_sim --world 3 --frames 60`.
 
 ## Jardín y Cobertizo (fase 2)
 
@@ -242,6 +250,191 @@ flash (XIP). `make check-phrases` o `ctest` comprueban que el generado está al 
 del motor validan además que todo se dibuja con la fuente y cabe en la caja (6 líneas de 18
 letras; las preguntas, 5).
 
+## La Música generativa (fase 4)
+
+### 🎵 Controles
+
+| Gesto | Qué hace |
+|---|---|
+| **A** (toque) | **Mutar**: cambia la melodía (motivo y variaciones) y conserva el estilo: misma escala, progresión, tempo y timbre. Aparece "+N" junto a la escala |
+| **A** (mantener) | **Semilla nueva**: otra escala, otro tempo, otra progresión, otro timbre (`Semilla #4F2A`) |
+| **B** | Cambia de mundo, como siempre. La música se desvanece (150 ms) y calla |
+| `+` / `-` / `M` (simulador) | Volumen y silencio; se aplican a la música y a los pitidos |
+
+**Límite: ninguno** (ni acciones diarias ni nada que gastar). La caja del mundo muestra la escala y
+las mutaciones (`DÓRICA +3`) y el tempo y la semilla (`96 BPM · #4F2A`); debajo, el osciloscopio de las
+últimas muestras, una barra por voz (con el destello de cada nota), los 16 pasos del compás, los 16
+compases de la canción (cian A, magenta B) y el acorde que suena. El visualizador se calcula del mismo
+generador que el audio, no del altavoz: se ve igual con `--mute` o sin dispositivo de audio.
+
+### Cómo suena (y de qué depende)
+
+- **Tres voces estilo NES**: dos ondas cuadradas con ciclo de trabajo de 12,5 / 25 / 50 % (la melodía y el
+  bajo o arpegio) y un canal de ruido de 15 bits que hace de bombo (ruido grave que baja), caja y
+  hi-hat (cerrado y abierto). Envolventes de ataque/decaimiento (órgano, pluck o suave), vibrato ligero
+  en las notas largas y un filtro de un polo. Todo en enteros (fase acumulada de 32 bits, tabla de
+  frecuencias de 16 bits), sin float ni malloc: `Music` ocupa 2,8 KB de RAM y ~14 KB de código en x86
+  con `-Os`. Medido en el portátil: 60 s de audio en 7 ms (~5 ns por muestra, más de 8.000 veces el tiempo
+  real); en un Cortex-M33 sin FPU, a 22.050 Hz, saldría por debajo del 5 % de la CPU, pero **es una estimación:
+  no está medido en el chip**.
+- **La semilla** es de 16 bits (`#4F2A`) y se guarda con las mutaciones (1 byte) y el ánimo (1 byte): **4 bytes**
+  en `GameState.mus`, nada más. De (semilla, ánimo) sale el **estilo** y de (estilo, semilla, mutaciones) la
+  **canción** de 16 compases, siempre igual. `SAVE_VERSION` es 4 (los guardados de las fases 0, 2 y 3 se
+  rechazan y se crea un universo nuevo); `SAVE_FIELDS` sigue siendo la única fuente de verdad y el estado
+  completo ocupa 1.154 bytes en el guardado (1.584 en memoria), muy por debajo de los 4 KB.
+- **Escala y tempo según la hora y el clima del Jardín (§4.4)**: de día, pentatónica mayor; amanecer y
+  atardecer, pentatónica o dórica; de noche, menor o dórica; **con lluvia, solo las dos menores** (pentatónica
+  menor o menor natural) y un 15 % más despacio. Tempos: noche 66-88, amanecer 92-112, día 104-132,
+  atardecer 84-104 negras por minuto. La hora (franjas: noche 22-5 h, amanecer 5-10, día 10-18, atardecer
+  18-22), el clima, el cielo y la mascota forman el **ánimo** (1 byte). Es **sutil, no estridente**: una
+  estrella fugaz da un temblor de vibrato, el arcoíris la anima un 4 % y la pasa a una cuadrada de 25 %
+  (más brillante), la piedra la frena un 6 % y le deja la batería mínima, el hongo la vuelve algo nasal de día
+  (cuadrada de 12,5 %), la semilla la acelera un 3 %. El ánimo se fija al entrar en el
+  mundo; si empieza a llover mientras escuchas, el cambio entra al empezar la vuelta siguiente.
+- **Progresiones (22)**: I-V-vi-IV, I-vi-IV-V, vi-IV-I-V, I-IV-V-IV, I-iii-IV-V, I-IV-vi-V, IV-I-V-vi, I-V-IV-I
+  (mayores); i-VII-VI-VII, i-VI-III-VII, i-iv-VII-i, i-VI-VII-i, i-iv-v-i, i-III-VII-VI, VI-VII-i-i, i-VII-III-VII
+  (menores); i-IV-i-VII, i-VII-IV-i, i-IV-VII-IV, i-III-VII-IV, i-v-IV-i, i-ii-IV-i (dóricas). La canción es
+  **A A' B A''** (4 compases cada una, la B con otra progresión de la misma familia) y acaba con V (o ♭VII)
+  y tónica.
+- **Ritmos euclidianos** (Björklund con enteros): bombo E(2..5,16), hi-hat E(4..12,16), redoble de E(5,8) al final
+  de las frases y las notas del bajo en E(3..5,16). Casos conocidos comprobados en los tests: E(3,8) `x..x..x.`,
+  E(5,8) `x.xx.xx.`, E(7,16) `x..x.x.x..x.x.x.`, E(9,16) `x.xx.x.x.xx.x.x.`...
+- **Melodía por cadenas de Markov** sobre los grados de la escala: una matriz de tendencias por escala (el 4.º baja
+  al 3.º, el 7.º sube a la tónica...) por el tamaño del salto (sobre todo grados conjuntos y terceras; sextas,
+  séptimas y octava no se saltan) y reglas que aproximan el orden 2 (tras un salto se vuelve en sentido contrario por
+  grados conjuntos, nunca tres notas iguales seguidas). Rango de 17 semitonos desde la tónica -3 (cantable); en el
+  primer y tercer tiempo solo suenan notas del acorde (así es consonante con el bajo); cada compás acaba cerca de
+  donde empieza el siguiente. Los motivos se repiten (A' es A con las últimas notas re-tiradas y otra cadencia;
+  A'' vuelve) y mutan poco a poco. **Mutar** vuelve a tirar la melodía (otro motivo y otros ritmos) con la misma
+  semilla de estilo.
+- **La música no es parte del tiempo del universo**: no avanza en `World.tick` ni en el catch-up, solo suena (por
+  trozos de muestras) mientras estás en este mundo, y tiene su propio PCG32: no gasta ni un número de `gs->rng`. El
+  test de 6 horas lo comprueba (el estado guardado coincide con el de un llavero que no escucha nada, salvo los
+  4 bytes de la música y el mundo abierto).
+
+### Audio, batería y pitidos
+
+- **Solo suena en el mundo Música y con el llavero despierto.** Al cambiar de mundo o al dormirse se desvanece
+  en 150 ms (`LLV_MUSIC_FADE_MS`) y calla (`engine_audio_render` devuelve 0 muestras: no se manda silencio, la salida
+  duerme). Con una sorpresa de cartucho sucio o de "salí" en este mundo, también calla.
+- **Se duerme a los 3 minutos sin tocarlo** (`LLV_SLEEP_MUSIC_MS`) en este mundo mientras suena, en vez de a los
+  20 s de los demás: es un mundo para dejarlo en la mesa, y con 20 s no daría tiempo a juzgar ninguna canción.
+  Sigue siendo "solo consume batería mientras estás aquí".
+- **Quién manda: los pitidos de la interfaz.** Los `Tone` de `FrameOut` (un toque, B, etc.) siguen saliendo igual;
+  la plataforma los mezcla por encima de la música y el motor baja la música al 44 % mientras suenan
+  (`music_duck`, con rampa para que no haya escalones).
+- **HAL** (`src/hal/hal.h`): `hal_audio_wanted()` (cuántas muestras produce falta) y `hal_audio_push(pcm, n)`; el bucle común
+  `hal_audio_pump()` (`src/hal/audio.c`) llama a `engine_audio_render()`. El PCM es mono de 16 bits a
+  `LLV_AUDIO_RATE` (22.050 Hz; vale entre 8.000 y 48.000 y el tempo es el mismo a cualquier tasa), para el PWM de la
+  RP2350. En el simulador SDL2 el callback mezcla una cola circular de música con los pitidos (con
+  `SDL_AUDIODRIVER=dummy` funciona sin sonido; sin dispositivo, `hal_audio_wanted` sigue el reloj y el visualizador
+  sigue vivo). En headless hay un stub (`hal_audio_stub.c`) que no suena pero pasa por el mismo camino y se puede
+  grabar: `llv_headless ... world 3 rec musica.wav wait 30000 recstop`.
+
+### Generar WAV y el informe
+
+```sh
+make music    # = build/make/llv_music --seeds 200 --seconds 30 --out capturas/musica --baseline --sweep 65536 --roll 8
+build/make/llv_music --seeds 50 --first 100 --out /tmp/m --no-wav        # solo medir
+build/make/llv_music --one 0x4F2A 0x22                                   # volcado de notas de una semilla y un ánimo
+```
+
+Escribe `musica_XXXX.wav` (mono, 16 bits, 30 s), `informe_musica.txt` (por semilla: escala, tonalidad, tempo,
+progresiones, todas las métricas, el veredicto y qué criterios incumple, más un resumen con los mínimos, medias y
+máximos), `roll_XXXX.png` (piano roll: melodía cian, bajo magenta, bombo/caja/hi-hat, acordes y frases) y
+`espectro_XXXX.png` (espectrograma de 0 a 5,5 kHz) de las primeras semillas. Cada semilla rota entre franjas del día,
+lluvia, cielo y mascota (el ánimo sale de su posición: 120 combinaciones), así que las 200 las cubren todas. `--baseline` repite el
+análisis con una **melodía ingenua** (notas al azar de la escala con ritmo al azar, el mismo acompañamiento) y
+`--sweep N` mide solo las notas de N semillas sin renderizar (con 65.536 recorre todas).
+
+### "Suena agradable 9 de cada 10 semillas": qué se mide y qué no
+
+**No se puede oír desde el código.** Lo que sí se puede medir es si la música está *bien formada* según reglas sencillas
+de teoría musical. Los umbrales se fijaron antes de medir y se razonan aquí; una semilla es "agradable" si cumple **todos**:
+
+| Criterio | Umbral | Por qué |
+|---|---|---|
+| Notas en la escala | >= 95 % | Sin notas ajenas a la escala elegida |
+| Rango | entre 7 y 17 semitonos | Menos de una quinta es monótono; más de octava y cuarta ya no es cantable |
+| Salto máximo | <= 12 (una octava) | Un salto mayor que una octava rompe la línea |
+| Salto medio | <= 4 semitonos | Una melodía se mueve por grados conjuntos |
+| Grados conjuntos | >= 55 % de los intervalos <= 3 semitonos | En las melodías occidentales y de tradición oral la mayoría de los intervalos son grados conjuntos (en pentatónica, de 2 o 3 semitonos) |
+| Saltos grandes | <= 10 % de los intervalos > 7 semitonos | Mayores que una quinta, raros |
+| Notas repetidas | <= 3 iguales seguidas | La cuarta igual seguida suena a tartamudeo |
+| Escalas largas | <= 7 notas seguidas subiendo (o bajando) | Más es un ejercicio de escala, no una melodía |
+| Variedad | >= 4 clases de altura | Con menos, un ostinato |
+| Motivo que vuelve | >= 30 % de semejanza entre compases a la mejor distancia (1 a 12) | Autocorrelación a nivel de compás: lo que se repite se reconoce (el azar da 10-20 %) |
+| Densidad | entre 2 y 9 notas por compás | Menos es letárgico, más es frenético con semicorcheas a 60-140 BPM |
+| Silencios en la melodía | <= 30 % de los pasos | Debe cantar casi todo el rato |
+| Resuelve | la última nota es la tónica y dura >= una negra | La cadencia final |
+| Consonancia en tiempos fuertes | >= 85 % de las ocasiones (pasos 0 y 8) | Entre melodía y bajo: unísono, terceras, cuarta, quinta y sextas; 2.as, 7.as y tritono cuentan como disonancias |
+| Notas del acorde | >= 55 % de la duración de la melodía | La melodía se apoya en la armonía |
+| Choques ásperos | < 8 % del tiempo con 2.ª menor, 7.ª mayor o tritono entre melodía y bajo | Los intervalos más ásperos pueden pasar, no quedarse |
+| Tempo | 56 a 140 BPM | |
+| Pico | < 32.000 y sin recortes | El máximo teórico es 18.500; sin saturar |
+| Volumen | RMS entre -32 y -9 dBFS | Ni inaudible ni a tope |
+| Componente continua | < 3 % del fondo de escala | |
+| Silencio | < 15 % de ventanas de 20 ms mudas | Sin huecos largos |
+
+**Resultado** (`make music`, semillas #0001-#00C8 con los 24 primeros ánimos en rotación, y barrido de todas las
+semillas con todos los ánimos):
+
+| | Cumplen |
+|---|---|
+| 200 semillas, 30 s de audio cada una | **194 de 200 (97,0 %)** |
+| Barrido de las 65.536 semillas (solo notas) | **63.064 (96,2 %)** |
+| Por franja del día y clima | entre 95,5 y 96,6 % en todas |
+| Por escala | pentatónica 96,5 %, pentatónica menor 96,1 %, dórica 95,0 %, menor 96,2 % |
+| Con 1 a 6 mutaciones | 95,9 a 96,3 % |
+| **Melodía ingenua** (notas al azar de la escala) | **0 de 200 (0 %)** |
+
+Las 6 que no cumplen de las 200 incumplen solo "grados conjuntos" (y una también "salto máximo"): #0038, #004D, #0072, #0096,
+#00BF y #00C6 (casi todas en pentatónica menor o menor, donde las notas del acorde de VII o iv quedan a 5 semitonos). Los
+umbrales no pasan por casualidad: el azar no los cumple nunca, y los tests (`gate: >= 90 %`) lo vigilan con 240 semillas
+renderizadas, el barrido de 6.000 y la melodía ingenua.
+
+**Qué hice para subirlo.** La primera versión del generador cumplía el 28,6 % (barrido). Cada paso se midió con el
+barrido de las 65.536 semillas, y se afinó el generador con *conocimiento musical*, no moviendo umbrales:
+
+1. Solo el primer y el tercer tiempo (y las notas que pasan por encima) exigen una nota del acorde; antes también las
+   negras del 2.º y el 4.º, y la melodía salía hecha de arpegios (28,6 -> 61,8 %, junto con ampliar la métrica de
+   motivos de 8 a 12 compases de distancia: A y A'' están a 12).
+2. Ningún salto mayor que una quinta (salían octavas por azar): 68,6 %.
+3. Cada compás acaba cerca de donde empieza el siguiente (los motivos copiados saltaban entre frases), los motivos copiados
+   se desplazan por notas del acorde y no por semitonos (A' repetía), y nunca hay tres notas iguales seguidas: 83,7 %.
+4. Pesos de los saltos más conservadores (terceras menos y quintas casi nunca): 92,7 %.
+5. Ritmos con notas de paso incluso en las melodías escasas: 93,3 %.
+6. Más peso aún a los grados conjuntos y una tendencia al centro más suave: 96,1 %.
+7. Añadí un criterio más (choques ásperos), que bajó el resultado a 94,7 %, y las notas de paso pasaron a evitar los
+   choques con el bajo: **96,2 %**.
+
+**Una advertencia honesta:** un generador afinado contra unas métricas tiende a cumplirlas (ley de Goodhart); que cumpla los
+umbrales demuestra que está bien formado, no que guste. Lo único que se cambió en las métricas fue el alcance de la de
+motivos (8 a 12 compases, paso 1) y se añadió un criterio; ningún umbral se aflojó.
+
+### Lo que no se puede validar sin oído humano
+
+El gate real ("suena agradable 9 de cada 10 semillas") **se cierra escuchando**:
+
+```sh
+make sim && build/make/llv_sim              # B hasta Música (Reloj > Jardín > Sala > Música), o: build/make/llv_sim --world 3
+# A: mutar    A (mantener): semilla nueva    + / -: volumen    1 / 2: máquina del tiempo (cambia la hora, la escala y el tempo)
+```
+
+o abre los WAV de `capturas/musica/` (`musica_0001.wav`...) y apunta cuáles te molestan: pasa 20 semillas y cuenta (18 o más =
+gate). Esto **no** lo puede decir ninguna métrica: si el timbre de las cuadradas con el filtro cansa o es agradable, si el
+bombo de ruido suena a bombo, si los alias de las cuadradas agudas (se ven en el espectrograma por encima de 5 kHz) molestan
+en un altavoz de 15 mm, si 30 s de bucle ya se hacen pesados, si el vibrato es demasiado, el balance entre voces, ni cómo suena
+por el PWM de la RP2350 (tasa, filtrado RC y el altavoz real). Material para afinar: las 6 semillas que no cumplen (arriba);
+#0001, #0002, #0003 y #0006 (rotan dórica, pentatónica y menor, de las más y menos densas); y las extremas del informe:
+#0091 (la más escasa: 39 notas), #0064 (la más densa: 88), #000D (56 BPM), #008B (137 BPM), #006C (la más baja de volumen) y
+#0003 (la más alta), todas con su ánimo en `informe_musica.txt`. Las dos preguntas que más importan: ¿se nota que la lluvia la hace
+más triste?, y ¿molesta que no haya ninguna variación de dinámica en 30 s?
+
+Los gráficos (`roll_XXXX.png`, `espectro_XXXX.png`) y las capturas (`make shots`) se revisaron a ojo: el piano roll muestra
+melodía dentro del rango, bajo en el registro grave, acordes por compás y las frases A, A', B y A''; el espectrograma, las
+armónicas de las cuadradas y los golpes de ruido; el visualizador, barras, osciloscopio y pasos que se mueven con el compás.
+
 ## Herramienta headless
 
 Reloj virtual, gestos y capturas sin dependencias:
@@ -280,6 +473,14 @@ build/llv_headless world 2 surprise glitch shot sucio
 `talk`, `yes`/`no`, `bell`, `drain`, `ask PREGUNTA`, `say PERSONAJE`, `visitor`, `surprise`,
 `grandma`, `habit`, `steps`, `battery`, `streak`, `news`, `led`, `pool` y `sala` completan la herramienta.
 
+Para la fase 4: `weather N` y `sky N` (clima y cielo, que cambian la música), `musicseed S`, `music`
+(describe lo que suena) y `rec ARCHIVO.wav` / `recstop` (graba lo que saldría por el altavoz mientras tanto):
+
+```sh
+build/make/llv_headless --date "2026-10-22 23:30" --seed 3 musicseed 17 weather 1 world 3 \
+    rec musica_noche_lluvia.wav wait 30000 recstop shot musica
+```
+
 ## Estado por fases (spec §14)
 
 - [x] **Fase 0:** motor, HAL, simulador SDL, controles, estado con límites fijos,
@@ -289,7 +490,8 @@ build/llv_headless world 2 surprise glitch shot sucio
   simulada).
 - [x] **Fase 3:** La Sala (personajes, preguntas, memoria, diario), Director, hábitos y bono
   de paciencia (ver el gate de la fase 3).
-- [ ] Fase 4: Música generativa.
+- [x] **Fase 4:** Música generativa: motor, mundo, HAL de audio y métricas hechos (97 % de las semillas cumple los
+  umbrales, ver más arriba); **el gate de oído está pendiente de ti** (es el que cuenta: `make sim`, mundo Música).
 - [ ] Fase 5: Pesca y colección.
 - [ ] Fase 6: carcasa y ajuste de números.
 - [ ] Fase 7: regalos.
@@ -443,3 +645,25 @@ Cosas que la spec deja abiertas y se resolvieron por lo más sencillo:
 - **Bug encontrado por el test de determinismo:** `habit_steps` (que corre en cada fotograma)
   gastaba un dado con la bolsa llena; el azar dependía de cuántos fotogramas hubiera habido.
   Ahora comprueba antes si cabe y no consume azar si no.
+
+### Decisiones de la fase 4
+
+- **La semilla es de 16 bits** (`#4F2A`): cabe entera en la pantalla, se puede apuntar y 65.536 canciones de
+  base (x ánimos x mutaciones) sobran. El estado de la música son 4 bytes: semilla, mutaciones (1 a 255; al llegar a 255 vuelve
+  a 1) y el último ánimo. La semilla inicial sale de la del universo con un hash, sin gastar `gs->rng`; la nueva (A, mantener) sale
+  de la hora y el instante del toque, tampoco usa `gs->rng`.
+- **El sintetizador vive en el `Engine`, no en el `GameState`** (es efímero): `engine_audio_render()` lo avanza por trozos y
+  el mundo lo lee por `WorldCtx.music` (solo lectura). El motor lo arranca al entrar en el mundo y lo apaga con un fundido al salir o
+  dormir. El ánimo se toma al entrar (hora, lluvia, cielo y mascota de ese momento) y se guarda en `gs->mus.mood`.
+- **El visualizador se calcula del generador** (envolventes y las últimas 128 muestras del propio sintetizador), no del
+  dispositivo: igual con y sin audio. Mantener la gramática de botones: B cambia de mundo; A actúa.
+- **Pitidos y música**: los pitidos mandan (se mezclan por encima y la música baja al 44 % mientras suenan). En el
+  simulador, las dos cosas pasan por el mismo callback de SDL. El volumen y el silencio (`+`, `-`, `M`) son del simulador, no del estado.
+- **Dormir**: con la música sonando, 3 minutos sin tocar (`LLV_SLEEP_MUSIC_MS`) en vez de 20 s. Sin música, nada cambia.
+- **Mutar y semilla nueva**: mutar regenera la melodía y sigue por el mismo paso (la nota que suena termina); semilla nueva
+  baja el volumen 40 ms, regenera todo y vuelve a empezar con entrada suave (no hay clics). Un cambio de ánimo (llueve) espera
+  al principio de la vuelta (16 compases).
+- **Ensayos que no entraron**: orden 2 real en las cadenas de Markov (se aproxima con las reglas de salto y repetición, más sencillo
+  y suficiente); notas de paso cromáticas (todo es de la escala); más voces o arpegios rápidos al estilo NES (las dos cuadradas
+  hacen bajo o arpegio de corcheas); el comentario de Unidad-7 sobre la música en la Sala (es secundario y habría tocado el
+  vocabulario de frases: queda para cuando se amplíe el banco).

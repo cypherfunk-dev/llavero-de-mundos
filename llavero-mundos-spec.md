@@ -6,7 +6,7 @@
 > absurdamente lenta. Lo miras un momento, algo ha cambiado, alguien te dice
 > algo, y de vez en cuando pasa algo que no esperabas.
 
-- **Estado:** fases 0, 2 y 3 hechas en el simulador (motor, HAL, SDL2, Reloj, Jardín, bolsa, Cobertizo y mascota, La Sala con frases, Director, hábitos y bono de paciencia, con tests de determinismo); ver `README.md`.
+- **Estado:** fases 0, 2 y 3 hechas en el simulador (motor, HAL, SDL2, Reloj, Jardín, bolsa, Cobertizo y mascota, La Sala con frases, Director, hábitos y bono de paciencia, con tests de determinismo); fase 4 (Música generativa) hecha en motor, mundo, HAL de audio y métricas, con el gate de oído pendiente; ver `README.md`.
 - **Alcance:** primera unidad para mí; después unas pocas para regalar. No es un
   producto comercial (por ahora).
 - **Vibe:** juguete noventero × solarpunk × cuántico × indie hacker.
@@ -636,7 +636,7 @@ Una barra de ~12 px muestra la hora, la bolsa y las acciones restantes.
 | **1** | Hardware en mano: placa, botones, altavoz, IMU, sueño y despertar | Aguanta ≥ 4 días con uso normal |
 | **2** ✅ | **Jardín + bolsa + Cobertizo + mascota** | Tras una semana en el simulador, el jardín sigue sorprendiendo |
 | **3** ✅ | **La Sala**: personajes, preguntas, memoria, diario, Director, **hábitos** y bono de paciencia | Te hace reír al menos una vez al día, y alguna vez te hace beber agua |
-| **4** | **Música** generativa | Suena agradable 9 de cada 10 semillas |
+| **4** ◐ | **Música** generativa (motor, mundo, audio y métricas hechos; falta el gate de oído) | Suena agradable 9 de cada 10 semillas |
 | **5** | **Pesca** y colección completa | La cadena lombriz → pez → colección funciona |
 | **6** | Carcasa, dos semanas de uso diario y ajuste de los números 🧪 | Lo sigues mirando el día 14 |
 | **7** | Regalos: personalización y mensajes con fecha | — |
