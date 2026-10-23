@@ -172,6 +172,15 @@ typedef struct {
     uint16_t steps_today;
 } Habits;
 
+/* La música (fase 4, spec §4.4): lo mínimo para volver a oír lo mismo. La semilla de la melodía
+ * (#4F2A), cuántas veces se ha mutado y el ánimo del universo con el que sonó (ver music.h). La
+ * música no usa gs->rng: tiene su propio PCG32 sembrado con esta semilla. */
+typedef struct {
+    uint16_t seed;
+    uint8_t mut;
+    uint8_t mood;
+} MusicSave;
+
 typedef struct {
     uint64_t seed;
     Rng rng;
@@ -217,6 +226,9 @@ typedef struct {
     Sala sala;
     Director dir;
     Habits hab;
+
+    /* Fase 4 */
+    MusicSave mus;
 } GameState;
 
 void state_init(GameState *gs, uint64_t seed, int64_t now);

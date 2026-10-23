@@ -6,11 +6,12 @@
 
 #include "garden.h"
 #include "habits.h"
+#include "music.h"
 #include "phrases.h"
 #include "timeutil.h"
 
 #define SAVE_MAGIC 0x31564C4Cu /* "LLV1" */
-#define SAVE_VERSION 3         /* v1 (fase 0) y v2 (fase 2) no tenían la Sala ni el Director: se rechazan */
+#define SAVE_VERSION 4         /* v1-v3 no tenían la música (v1/v2 tampoco la Sala): se rechazan */
 
 /* Peso de cada objeto al recargar la bolsa (spec §3.1). */
 static const uint8_t ITEM_WEIGHT[ITEM_COUNT] = {
@@ -50,6 +51,11 @@ void state_init(GameState *gs, uint64_t seed, int64_t now)
     gs->dir.last_surprise_day = (uint16_t)gs->day_key;
     gs->last_look_day = (uint16_t)gs->day_key;
     gs->hab.steps_last = 0xFFFFFFFFu;     /* aún no hay lectura del podómetro */
+    /* La música: una semilla sacada de la del universo sin gastar ni un número de gs->rng. */
+    uint64_t h = (seed ^ 0x4D5553u) * 0x9E3779B97F4A7C15ull;
+    h ^= h >> 29;
+    h *= 0xBF58476D1CE4E5B9ull;
+    gs->mus.seed = (uint16_t)(h >> 40);
 }
 
 /* Cada suceso del diario avisa al mundo al que pertenece (el ❗ del HUD) y queda "fresco"
@@ -351,6 +357,8 @@ static uint64_t r_bytes(Reader *r, int n)
     X((p)->kind, 1) X((p)->gen, 1) X((p)->age, 2) X((p)->happy, 1) X((p)->thought, 1) \
     X((p)->word_left, 2) X((p)->task_left, 2) X((p)->stage_seen, 1)
 
+#define MUS_FIELDS(X, m) X((m)->seed, 2) X((m)->mut, 1) X((m)->mood, 1)
+
 #define SAVE_FIELDS(X, s)                                  \
     X((s)->seed, 8)                                        \
     X((s)->rng.state, 8)                                   \
@@ -387,7 +395,8 @@ static uint64_t r_bytes(Reader *r, int n)
     X((s)->streak, 1)                                      \
     SALA_FIELDS(X, &(s)->sala)                             \
     DIR_FIELDS(X, &(s)->dir)                               \
-    HAB_FIELDS(X, &(s)->hab)
+    HAB_FIELDS(X, &(s)->hab)                               \
+    MUS_FIELDS(X, &(s)->mus)
 
 size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
 {
@@ -424,7 +433,7 @@ static int state_valid(const GameState *t)
         t->dir.cur >= DS_COUNT || t->dir.arg >= 255 || t->hab.enabled >= (1u << HAB_COUNT) ||
         t->hab.done_today >= (1u << HAB_COUNT) || t->hab.asked_today >= (1u << HAB_COUNT) ||
         t->hab.asked_count > LLV_HABIT_MAX_PER_DAY || t->news >= (1u << LLV_WORLD_COUNT) ||
-        (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0)
+        (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0 || !music_mood_valid(t->mus.mood))
         return 0;
     for (int i = 0; i < LLV_Q_MAX; i++)
         if ((sa->memo[i] & 3) == 3 || sa->memo[i] > 7 || (i >= Q_COUNT && (sa->memo[i] || sa->memo_day[i])))

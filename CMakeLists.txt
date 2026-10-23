@@ -20,16 +20,16 @@ add_library(llv_core STATIC
   src/core/timeutil.c src/core/rng.c
   src/core/garden.c src/core/garden_data.c src/core/pet.c src/core/art.c
   src/core/phrases.c src/core/phrases_data.c src/core/talk.c src/core/director.c src/core/habits.c
-  src/core/cast.c src/core/overlays.c
+  src/core/cast.c src/core/overlays.c src/core/music.c
   src/core/worlds/reloj.c src/core/worlds/jardin.c src/core/worlds/cobertizo.c
-  src/core/worlds/sala.c src/core/worlds/placeholder.c)
+  src/core/worlds/sala.c src/core/worlds/musica.c src/core/worlds/placeholder.c)
 target_include_directories(llv_core PUBLIC src/core)
 if(LLV_MATH)
   target_link_libraries(llv_core PUBLIC ${LLV_MATH})
 endif()
 
 # Salida de imágenes (PNG/PPM) para el simulador y la herramienta headless.
-add_library(llv_util STATIC src/util/imgout.c)
+add_library(llv_util STATIC src/util/imgout.c src/util/wav.c src/util/musicstats.c)
 target_link_libraries(llv_util PUBLIC llv_core)
 
 # Tests (CTest).
@@ -37,6 +37,9 @@ enable_testing()
 add_executable(llv_tests tests/test_main.c)
 target_link_libraries(llv_tests PRIVATE llv_core)
 add_test(NAME llv_tests COMMAND llv_tests)
+add_executable(llv_test_music tests/test_music.c)
+target_link_libraries(llv_test_music PRIVATE llv_util)
+add_test(NAME llv_test_music COMMAND llv_test_music)
 
 # Frases (spec §5): data/frases/*.txt -> src/core/phrases_data.c (se versiona ya generado).
 # `cmake --build build --target phrases` lo regenera; ctest comprueba que está al día.

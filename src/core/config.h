@@ -62,6 +62,11 @@
 #define LLV_CODE_GAP_MS 1500                   /* máximo entre dos toques del código secreto */
 #define LLV_GLITCH_MS 9000                     /* el cartucho sucio se arregla solo a los 9 s */
 
+/* Audio (spec §4.4, §11): la música sale como PCM mono de 16 bits a esta tasa (entre 16000 y 22050
+ * Hz va bien para el PWM de la RP2350). Los pitidos de la interfaz los genera cada plataforma. */
+#define LLV_AUDIO_RATE 22050
+#define LLV_MUSIC_FADE_MS 150                  /* la música calla con este fundido al salir del mundo o dormir */
+
 /* Límites fijos de memoria (spec §10). */
 #define LLV_DIARY_SIZE 64
 #define LLV_WORLD_COUNT 6

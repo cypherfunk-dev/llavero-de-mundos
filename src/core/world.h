@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "gfx.h"
+#include "music.h"
 #include "state.h"
 
 /* Contexto efímero de un frame: nunca se guarda. */
@@ -20,6 +21,7 @@ typedef struct {
     uint8_t battery;   /* 1..100; 0 = no se sabe */
     bool charging;
     bool absent;       /* sorpresa "salí, vuelvo en 5 min": este mundo está vacío */
+    const Music *music;/* el sintetizador (solo lectura): el visualizador del mundo Música; puede ser NULL */
     /* Pitido (spec §5.2: un pitido por letra). Puede ser NULL (tests). */
     void (*tone)(void *user, uint16_t freq, uint16_t ms);
     /* Mensaje breve sobre la escena (lo dibuja el motor). Puede ser NULL (tests). */

@@ -1,4 +1,4 @@
-/* Mundos aún sin construir (Música y Pesca): muestran su nombre y la fase en la que llegan. */
+/* Mundos aún sin construir (Pesca): muestran su nombre y la fase en la que llegan. */
 #include <stdio.h>
 
 #include "../world.h"
@@ -11,7 +11,6 @@ typedef struct {
 
 /* Indexado por la posición en el ciclo de B (el Reloj, índice 0, no es marcador). */
 static const Placeholder INFO[LLV_WORLD_COUNT] = {
-    [3] = {"MÚSICA", 4, C_VIOLET_D, C_DARK, C_MAGENTA},
     [4] = {"PESCA", 5, C_SKY_N3, C_SKY_N4, C_CYAN},
 };
 
@@ -35,5 +34,4 @@ static void placeholder_render(const GameState *gs, const WorldCtx *ctx, Framebu
     const World sym = {.name = nm, .daily_actions = 0, .tick = NULL,                    \
                        .render = placeholder_render, .on_tap = NULL, .on_hold = NULL}
 
-PLACEHOLDER(world_musica, "Música");
 PLACEHOLDER(world_pesca, "Pesca");

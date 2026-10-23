@@ -5,7 +5,7 @@ CFLAGS  += -std=c11 -Wall -Wextra -Wpedantic
 B       := build/make
 
 CORE := $(sort $(wildcard src/core/*.c) $(wildcard src/core/worlds/*.c) src/core/phrases_data.c)
-UTIL := src/util/imgout.c
+UTIL := src/util/imgout.c src/util/wav.c src/util/musicstats.c
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
 SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
 SHOTS ?= capturas
@@ -33,14 +33,18 @@ $(B):
 $(B)/llv_tests: tests/test_main.c $(CORE) $(wildcard src/core/*.h) | $(B)
 	$(CC) $(CFLAGS) tests/test_main.c $(CORE) -lm -o $@
 
+$(B)/llv_test_music: tests/test_music.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
+	$(CC) $(CFLAGS) tests/test_music.c $(UTIL) $(CORE) -lm -o $@
+
 $(B)/llv_headless: src/platform/headless/main.c $(UTIL) $(CORE) $(wildcard src/core/*.h) | $(B)
 	$(CC) $(CFLAGS) src/platform/headless/main.c $(UTIL) $(CORE) -lm -o $@
 
 $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
-test: $(B)/llv_tests
+test: $(B)/llv_tests $(B)/llv_test_music
 	$(B)/llv_tests
+	$(B)/llv_test_music
 	@if command -v $(PYTHON) >/dev/null 2>&1; then $(MAKE) --no-print-directory check-phrases; fi
 
 headless: $(B)/llv_headless

@@ -73,6 +73,7 @@ static WorldCtx make_ctx(Engine *e, int64_t now, uint32_t ms)
     ctx.battery = e->battery;
     ctx.charging = e->charging;
     ctx.absent = gs->dir.cur == DS_AUSENCIA && gs->dir.arg == gs->current_world;
+    ctx.music = &e->music;
     ctx.toast = toast_cb;
     ctx.tone = tone_cb;
     ctx.user = e;
@@ -168,6 +169,48 @@ void engine_sleep(Engine *e, int64_t now)
     e->glitch_until_ms = e->boot_until_ms = e->coin_until_ms = 0;
     e->code_n = e->code_prog = 0;
     e->code_snap_valid = false;
+    music_stop(&e->music, LLV_MUSIC_FADE_MS); /* dormir calla la música con un fundido corto */
+}
+
+/* ---------- música (fase 4) ---------- */
+
+/* Pone el sintetizador de acuerdo con el estado: suena solo en el mundo Música, despierto y sin que
+ * el mundo esté "ausente" ni haya un cartucho sucio. La semilla y las mutaciones las cambia el
+ * propio mundo en gs->mus (A: mutar / nueva semilla); aquí se aplican. Solo toca gs->mus, nunca
+ * gs->rng ni el resto del universo. */
+static void music_sync(Engine *e, int64_t now)
+{
+    GameState *gs = &e->gs;
+    Music *m = &e->music;
+    bool want = !e->asleep && gs->current_world == WORLD_MUSICA && gs->dir.cur != DS_GLITCH &&
+                !(gs->dir.cur == DS_AUSENCIA && gs->dir.arg == WORLD_MUSICA);
+    if (!want) {
+        if (music_active(m) && !m->stopping)
+            music_stop(m, LLV_MUSIC_FADE_MS);
+        return;
+    }
+    if (!music_active(m) || m->stopping) {
+        /* Al entrar suena con el ánimo de ahora (hora, lluvia, cielo, mascota). */
+        gs->mus.mood = music_mood(gs, now);
+        music_start(m, gs->mus.seed, gs->mus.mut, gs->mus.mood, LLV_AUDIO_RATE);
+        return;
+    }
+    if (m->restart) /* una semilla nueva ya está en camino */
+        return;
+    if (gs->mus.seed != m->seed)
+        music_reseed(m, gs->mus.seed, gs->mus.mut, gs->mus.mood);
+    else if (gs->mus.mut != m->mut)
+        music_mutate(m, gs->mus.mut);
+    /* Si llueve (o amanece...) mientras escuchas, el estilo cambia al empezar la vuelta siguiente. */
+    if (gs->mus.seed == m->seed) {
+        music_set_mood(m, music_mood(gs, now));
+        gs->mus.mood = m->mood;
+    }
+}
+
+size_t engine_audio_render(Engine *e, int16_t *buf, size_t max)
+{
+    return music_active(&e->music) ? music_render(&e->music, buf, max) : 0;
 }
 
 /* ---------- HUD y superposiciones ---------- */
@@ -613,6 +656,7 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
         }
 
         surprise_tick(e, ms, out); /* una sorpresa forzada por un gesto (el código secreto, la rebeldía) */
+        music_sync(e, now);
         gs->news = (uint8_t)(gs->news & ~(1u << gs->current_world)); /* el mundo en el que estás ya no tiene novedades */
 
         if (ms - e->last_activity_ms > LLV_SLEEP_AFTER_MS && in.buttons == 0) {
@@ -698,5 +742,11 @@ FrameOut engine_frame(Engine *e, RawInput in, int64_t now, uint32_t ms)
     e->out = &out;
     frame_impl(e, in, now, ms, &out);
     e->out = NULL;
+    if (out.tone_count && music_active(&e->music)) { /* los pitidos mandan: la música les cede el sitio */
+        unsigned total = 0;
+        for (int i = 0; i < out.tone_count; i++)
+            total += out.tones[i].ms;
+        music_duck(&e->music, (uint16_t)(total + 40));
+    }
     return out;
 }

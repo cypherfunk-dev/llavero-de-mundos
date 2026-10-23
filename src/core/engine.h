@@ -7,6 +7,7 @@
 
 #include "gfx.h"
 #include "input.h"
+#include "music.h"
 #include "state.h"
 #include "world.h"
 
@@ -59,6 +60,9 @@ typedef struct {
     bool charging;
     uint32_t steps;
     FrameOut *out;               /* donde los mundos dejan sus pitidos durante un fotograma */
+
+    /* Fase 4: el sintetizador. Efímero: lo que se guarda es gs.mus (semilla, mutaciones, ánimo). */
+    Music music;
 } Engine;
 
 /* Universo nuevo. */
@@ -71,6 +75,17 @@ FrameOut engine_frame(Engine *e, RawInput in, int64_t now, uint32_t ms);
  * contador que solo crece (el motor reparte las diferencias por día; 0 = sin sensor). */
 void engine_set_body(Engine *e, uint8_t battery, bool charging, uint32_t steps);
 void engine_sleep(Engine *e, int64_t now);
+
+/* Música (fase 4, spec §4.4). La plataforma saca el audio llamando a esto cuando su salida pide
+ * muestras (hal_audio_wanted/hal_audio_push) y, si no hay salida, a ritmo del reloj: así el
+ * visualizador sigue siendo lógico. Devuelve cuántas muestras PCM mono (LLV_AUDIO_RATE) ha escrito;
+ * 0 si no suena nada (la música solo suena en el mundo Música y con el llavero despierto; al salir o
+ * dormir se desvanece en LLV_MUSIC_FADE_MS y calla). No toca el estado del universo.
+ *
+ * Quién manda: los pitidos de la interfaz (FrameOut.tones) mandan sobre la música: se mezclan por
+ * encima y, mientras suenan, el motor baja la música (music_duck). La música se apaga sola cuando
+ * hace falta. */
+size_t engine_audio_render(Engine *e, int16_t *buf, size_t max);
 
 /* Avanza el universo hasta 'now' en macro ticks (tope LLV_CATCHUP_MAX_TICKS).
  * Puro y determinista: es lo que se usa tanto en vivo como al despertar. */
