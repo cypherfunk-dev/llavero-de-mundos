@@ -714,6 +714,41 @@ static void goto_music(Engine *e, int64_t now, uint32_t *ms)
         engine_frame(e, none, now, *ms += 30);
 }
 
+static void test_engine_music_world_sleeps_later(void)
+{
+    /* En el mundo Música sonando el llavero aguanta 3 minutos sin tocarlo (para dejarlo en la mesa);
+     * en cualquier otro mundo, los 20 s de siempre. Y al dormirse, la música calla. */
+    static Engine e;
+    static int16_t pcm[2048];
+    RawInput none = {0, false};
+    int64_t now = t_noon();
+    uint32_t ms = 1000;
+    engine_init(&e, 8, now, ms);
+    e.gs.current_world = WORLD_RELOJ;
+    for (uint32_t t = 0; t < 25000; t += 100)
+        engine_frame(&e, none, now, ms += 100);
+    CHECK(e.asleep); /* el Reloj se duerme a los 20 s */
+
+    engine_init(&e, 8, now, ms);
+    e.gs.current_world = WORLD_MUSICA;
+    uint32_t t = 0;
+    for (; t < 150000; t += 100) {
+        engine_frame(&e, none, now, ms += 100);
+        engine_audio_render(&e, pcm, 2048);
+    }
+    CHECK(!e.asleep && music_active(&e.music)); /* 2 min 30 s después, aún suena */
+    for (; t < 200000; t += 100) {
+        engine_frame(&e, none, now, ms += 100);
+        engine_audio_render(&e, pcm, 2048);
+    }
+    CHECK(e.asleep); /* a los 3 min se duerme */
+    size_t n;
+    int guard = 0;
+    while ((n = engine_audio_render(&e, pcm, 2048)) > 0 && guard++ < 40) {
+    }
+    CHECK(!music_active(&e.music));
+}
+
 static void test_engine_tap_mutates_hold_reseeds(void)
 {
     static Engine e;
@@ -1093,6 +1128,7 @@ int main(void)
         {"animo: cambia al empezar la vuelta, no a mitad", test_mood_changes_at_loop_boundary},
         {"semilla nueva en marcha: baja y vuelve a empezar", test_restart_with_new_seed},
         {"motor: solo suena en el mundo Musica; fundido al salir y dormir", test_engine_music_only_in_music_world},
+        {"motor: en el mundo Musica se duerme a los 3 min, no a los 20 s", test_engine_music_world_sleeps_later},
         {"motor: A mutar, mantener A semilla nueva, sin tocar gs->rng", test_engine_tap_mutates_hold_reseeds},
         {"motor: los pitidos mandan y la musica cede", test_engine_beeps_duck_music},
         {"motor: la musica no toca el universo (6 h)", test_music_does_not_touch_universe},

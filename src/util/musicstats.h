@@ -35,6 +35,8 @@ typedef struct {
     int resolves;          /* 1 si la última nota es la tónica y dura al menos una negra */
     int cons_pm;           /* ‰ de consonancia melodía/bajo en tiempos fuertes (pasos 0 y 8) */
     int cons_n;            /* ocasiones medidas */
+    int harsh_pm;          /* ‰ del tiempo con melodía y bajo a segunda menor, séptima mayor o tritono */
+    int dissonant_pm;      /* ‰ con cualquier disonancia (también segunda mayor y séptima menor): informativo */
     int bpm;
 } MusicMetrics;
 
@@ -50,7 +52,7 @@ typedef struct {
 /* Criterios de "agradable": cada uno es un bit de la máscara que devuelve music_judge. */
 enum {
     MC_SCALE, MC_RANGE, MC_LEAP, MC_MEAN_LEAP, MC_STEPS, MC_BIG_LEAPS, MC_RUN, MC_MONO, MC_VARIETY,
-    MC_MOTIF, MC_DENSITY, MC_RESTS, MC_RESOLVE, MC_CONSONANCE, MC_CHORD_TONES, MC_TEMPO,
+    MC_MOTIF, MC_DENSITY, MC_RESTS, MC_RESOLVE, MC_CONSONANCE, MC_CHORD_TONES, MC_HARSH, MC_TEMPO,
     MC_PEAK, MC_LOUDNESS, MC_DC, MC_SILENCE,
     MC_COUNT
 };
@@ -72,6 +74,7 @@ enum {
 #define MC_REST_MAX_PM 300            /* como mucho el 30 % de los pasos sin melodía */
 #define MC_CONS_MIN_PM 850            /* tiempos fuertes: >= 85 % de consonancias */
 #define MC_CHORD_MIN_PM 550           /* >= 55 % de la melodía sobre notas del acorde */
+#define MC_HARSH_MAX_PM 80            /* los choques más ásperos (2.ª menor, 7.ª mayor, tritono): < 8 % del tiempo */
 #define MC_BPM_MIN 56
 #define MC_BPM_MAX 140
 #define MC_PEAK_MAX 32000             /* sin recortes */

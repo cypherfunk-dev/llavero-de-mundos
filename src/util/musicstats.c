@@ -149,6 +149,22 @@ void ms_analyze(const MusicSong *sg, const MusicStyle *st, MusicMetrics *r)
         }
     r->cons_n = tot;
     r->cons_pm = tot ? cons * 1000 / tot : 0;
+
+    /* Todo el tiempo en que suenan melodía y bajo a la vez: los choques ásperos (clases 1, 6 y 11). */
+    int both = 0, harsh = 0, dis = 0;
+    for (int s = 0; s < MUSIC_STEPS; s++) {
+        int m = music_sounding(sg->mel, s), b = music_sounding(sg->bass, s);
+        if (!m || !b)
+            continue;
+        int ic = iabs(m - b) % 12;
+        both++;
+        if (ic == 1 || ic == 6 || ic == 11)
+            harsh++;
+        if (ic == 1 || ic == 2 || ic == 6 || ic == 10 || ic == 11)
+            dis++;
+    }
+    r->harsh_pm = both ? harsh * 1000 / both : 0;
+    r->dissonant_pm = both ? dis * 1000 / both : 0;
 }
 
 void ms_audio(const int16_t *pcm, size_t n, uint32_t rate, AudioStats *r)
@@ -206,6 +222,7 @@ unsigned music_judge(const MusicMetrics *m, const AudioStats *a)
     FAIL(MC_RESOLVE, !m->resolves);
     FAIL(MC_CONSONANCE, m->cons_pm < MC_CONS_MIN_PM);
     FAIL(MC_CHORD_TONES, m->chord_tone_pm < MC_CHORD_MIN_PM);
+    FAIL(MC_HARSH, m->harsh_pm > MC_HARSH_MAX_PM);
     FAIL(MC_TEMPO, m->bpm < MC_BPM_MIN || m->bpm > MC_BPM_MAX);
     if (a) {
         FAIL(MC_PEAK, a->peak > MC_PEAK_MAX || a->clipped > 0);
@@ -222,7 +239,7 @@ const char *ms_criterion_name(int c)
     static const char *const N[MC_COUNT] = {
         "escala", "rango", "salto-max", "salto-medio", "grados-conjuntos", "saltos-grandes",
         "notas-repetidas", "escalas-largas", "variedad", "motivo", "densidad", "silencios-melodia",
-        "resuelve-en-tonica", "consonancia-fuertes", "notas-del-acorde", "tempo",
+        "resuelve-en-tonica", "consonancia-fuertes", "notas-del-acorde", "choques-asperos", "tempo",
         "pico", "volumen", "continua", "silencio-audio",
     };
     return c >= 0 && c < MC_COUNT ? N[c] : "?";

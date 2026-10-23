@@ -52,7 +52,7 @@ static void musica_hold(GameState *gs, const WorldCtx *ctx)
     gs->mus.mut = 0;
     gs->mus.mood = music_mood(gs, ctx->now);
     char msg[32];
-    snprintf(msg, sizeof(msg), "Semilla nueva #%04X", gs->mus.seed);
+    snprintf(msg, sizeof(msg), "Semilla #%04X", gs->mus.seed);
     world_toast(ctx, msg, 1400);
 }
 

@@ -163,7 +163,7 @@ static void idle(Sim *s, uint32_t total_ms)
 /* Salta 'secs' de tiempo. Si estaba despierto, deja que el llavero se duerma solo antes. */
 static void advance(Sim *s, int64_t secs)
 {
-    int64_t guard = LLV_SLEEP_AFTER_MS / 1000 + 2;
+    int64_t guard = (s->e.gs.current_world == WORLD_MUSICA ? LLV_SLEEP_MUSIC_MS : LLV_SLEEP_AFTER_MS) / 1000 + 2;
     if (!s->e.asleep && secs > guard) {
         idle(s, (uint32_t)guard * 1000);
         secs -= guard;
@@ -937,6 +937,8 @@ int main(int argc, char **argv)
         } else if (!strcmp(c, "sleep")) {
             advance(&s, 0);
             idle(&s, LLV_SLEEP_AFTER_MS + 1000);
+            for (int guard = 0; guard < 4000 && !s.e.asleep; guard++) /* el mundo Música tarda más en dormirse */
+                frame(&s, 50, 0, false);
         } else if (!strcmp(c, "wake")) {
             wake_if_needed(&s);
         } else if (!strcmp(c, "wait") && m1) {
@@ -1071,6 +1073,8 @@ int main(int argc, char **argv)
             if (!s.e.asleep) {
                 advance(&s, 0);
                 idle(&s, LLV_SLEEP_AFTER_MS + 1000);
+                for (int guard = 0; guard < 4000 && !s.e.asleep; guard++)
+                    frame(&s, 50, 0, false);
             }
             s.ms += (5000 - s.ms % 5000) % 5000;
             frame(&s, 20, 0, false);

@@ -75,6 +75,7 @@
 #define LLV_HOLD_MS 450                        /* pulsación larga */
 #define LLV_COMBO_MS 150                       /* A+B "a la vez" */
 #define LLV_SLEEP_AFTER_MS 20000               /* se duerme tras 20 s sin tocarlo 🧪 */
+#define LLV_SLEEP_MUSIC_MS 180000              /* ...salvo en el mundo Música sonando: 3 min, para dejarlo sonando 🧪 */
 #define LLV_COLLAPSE_MS 700                    /* animación de colapso al despertar */
 
 /* Cielo (horas locales en minutos desde medianoche). */

@@ -447,6 +447,21 @@ static int roulette(Rng *r, const uint32_t *wt, int n, uint32_t tot)
     return n - 1;
 }
 
+/* ¿Choca esta nota (durante toda su duración) con lo que toca el bajo? Segunda menor, séptima mayor o
+ * tritono: los intervalos más ásperos; en una nota de paso se toleran, pero se evitan. */
+static bool clashes_with_bass(const Gen *g, int bar, int step, int len, int pitch)
+{
+    for (int k = step; k < step + len && k < MUSIC_BAR_STEPS; k++) {
+        int b = music_sounding(g->sg->bass, bar * MUSIC_BAR_STEPS + k);
+        if (b) {
+            int ic = iabs(pitch - b) % 12;
+            if (ic == 1 || ic == 6 || ic == 11)
+                return true;
+        }
+    }
+    return false;
+}
+
 /* Pesos de cada nota de la ventana para la siguiente: tabla de grados x tamaño del salto x reglas
  * (tras un salto grande se vuelve en sentido contrario por grados conjuntos; nunca más de dos notas
  * iguales seguidas; en tiempo fuerte solo notas del acorde; la altura tira suavemente hacia el centro
@@ -483,6 +498,8 @@ static uint32_t next_weights(const Gen *g, int bar, int step, int len, int appr,
                 x = ct ? x * 6 : 0;
             else if (ct)
                 x *= 2;
+            else if (x && clashes_with_bass(g, bar, step, len, w->pitch[j]))
+                x /= 6;
             int dist = iabs(w->pitch[j] - g->center);
             x *= (uint32_t)(8 + (dist < 8 ? 8 - dist : 0));
             if (appr >= 0) {
@@ -1155,7 +1172,7 @@ static void next_step(Music *m)
                  n->len <= 2 ? 80 : n->len <= 4 ? 88 : 94, m->style.vib != 0 && n->len >= 4);
     n = &m->song.bass[s];
     if (n->len)
-        pulse_on(m, &m->v[MV_BASS], n, &BASS_ENV, 90, false);
+        pulse_on(m, &m->v[MV_BASS], n, &BASS_ENV, n->len <= 2 ? 85 : 94, false);
     uint8_t d = m->song.drums[s];
     if (d & DR_KICK)
         noise_hit(m, DR_KICK);

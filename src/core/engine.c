@@ -659,7 +659,10 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
         music_sync(e, now);
         gs->news = (uint8_t)(gs->news & ~(1u << gs->current_world)); /* el mundo en el que estás ya no tiene novedades */
 
-        if (ms - e->last_activity_ms > LLV_SLEEP_AFTER_MS && in.buttons == 0) {
+        /* Con la música sonando se aguanta despierto más rato (es un mundo para dejarlo en la mesa). */
+        uint32_t sleep_after = gs->current_world == WORLD_MUSICA && music_active(&e->music) && !e->music.stopping
+                                   ? LLV_SLEEP_MUSIC_MS : LLV_SLEEP_AFTER_MS;
+        if (ms - e->last_activity_ms > sleep_after && in.buttons == 0) {
             engine_sleep(e, now);
             out->save_now = true;
             tone(out, 523, 40);
