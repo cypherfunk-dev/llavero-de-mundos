@@ -81,6 +81,8 @@ PescaPhase pesca_phase(void);
 const FishGame *pesca_game(void);   /* NULL si no hay pelea en curso */
 const FishPlan *pesca_plan(void);   /* lo sorteado al lanzar; solo vale si la fase no es IDLE */
 const FishResult *pesca_result(void);
+/* Solo para capturas y pruebas: cambia el pez sorteado del lanzamiento en curso (tras lanzar, antes de que pique). */
+void pesca_debug_force(int idx, int size);
 
 /* Ayudas de interfaz del Cobertizo para tests y herramientas: el cursor es solo visual. */
 void jardin_ui_reset(void);

@@ -25,7 +25,7 @@ check-phrases:
 	$(PYTHON) tools/phrases2bin.py --selftest
 	$(PYTHON) tools/phrases2bin.py --check
 
-.PHONY: all test sim headless music-tool shots shots-reloj shots-jardin shots-sala shots-musica music phrases check-phrases clean
+.PHONY: all test sim headless music-tool shots shots-reloj shots-jardin shots-sala shots-musica shots-pesca shots-alfa music alpha phrases check-phrases clean
 all: test headless sim
 
 $(B):
@@ -49,10 +49,12 @@ $(B)/llv_music: src/platform/headless/music_tool.c $(UTIL) $(CORE) $(wildcard sr
 $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
-test: $(B)/llv_tests $(B)/llv_test_music $(B)/llv_test_pesca
+test: $(B)/llv_tests $(B)/llv_test_music $(B)/llv_test_pesca $(B)/llv_headless
 	$(B)/llv_tests
 	$(B)/llv_test_music
 	$(B)/llv_test_pesca
+	$(B)/llv_headless --date "2026-10-22 08:00" --seed 7 --out $(B) alpha 14 $(B)/informe_alfa.txt stock > $(B)/alfa.log
+	@echo "alfa de 14 días: 0 violaciones ($(B)/informe_alfa.txt)"
 	@if command -v $(PYTHON) >/dev/null 2>&1; then $(MAKE) --no-print-directory check-phrases; fi
 
 headless: $(B)/llv_headless
@@ -67,8 +69,15 @@ music: $(B)/llv_music
 	mkdir -p $(SHOTS)/musica
 	$(B)/llv_music --seeds 200 --seconds 30 --out $(SHOTS)/musica --baseline --sweep 65536 --roll 8
 
-# Capturas del Reloj, del Jardín/Cobertizo (fase 2), de la Sala con su semana simulada (fase 3) y de la Música (fase 4).
-shots: shots-reloj shots-jardin shots-sala shots-musica
+# Capturas del Reloj, del Jardín/Cobertizo (fase 2), de la Sala con su semana simulada (fase 3), de la Música (fase 4)
+# y de la Pesca con la colección (fase 5).
+shots: shots-reloj shots-jardin shots-sala shots-musica shots-pesca
+
+shots-pesca: $(B)/llv_headless
+	tools/shots_pesca.sh $(B)/llv_headless $(SHOTS)
+
+shots-alfa: $(B)/llv_headless
+	tools/shots_alfa.sh $(B)/llv_headless $(SHOTS)
 
 shots-musica: $(B)/llv_headless
 	tools/shots_musica.sh $(B)/llv_headless $(SHOTS)
@@ -98,3 +107,13 @@ shots-reloj: $(B)/llv_headless
 
 clean:
 	rm -rf build
+
+# La alfa entera (fase 5): los tests, 14 días de uso por los 6 mundos (con y sin lombriz extra diaria), el
+# informe y las capturas de los seis mundos en cuatro momentos del día. Todo en capturas/alfa/.
+alpha: test $(B)/llv_headless
+	mkdir -p $(SHOTS)/alfa
+	$(B)/llv_headless --date "2026-10-22 08:00" --seed 7 --out $(SHOTS)/alfa alpha 14 $(SHOTS)/alfa/informe_alfa.txt
+	$(B)/llv_headless --date "2026-10-22 08:00" --seed 7 --out $(SHOTS)/alfa alpha 14 $(SHOTS)/alfa/informe_alfa_stock.txt stock
+	$(B)/llv_headless --date "2027-02-03 08:00" --seed 21 --out $(SHOTS)/alfa alpha 14 $(SHOTS)/alfa/informe_alfa_invierno.txt stock
+	tools/shots_alfa.sh $(B)/llv_headless $(SHOTS)
+	tools/shots_pesca.sh $(B)/llv_headless $(SHOTS)

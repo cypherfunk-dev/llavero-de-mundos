@@ -1365,6 +1365,40 @@ static void test_cobertizo_collection(void)
     cobertizo_ui_reset();
 }
 
+/* Ya no queda ningún mundo de relleno: el ciclo de B recorre los 6 reales en el orden de la spec. */
+static void test_six_real_worlds(void)
+{
+    static const char *const NAMES[LLV_WORLD_COUNT] = {"Reloj", "Jardín", "Sala", "Música", "Pesca", "Cobertizo"};
+    static const int DAILY[LLV_WORLD_COUNT] = {0, LLV_GARDEN_ACTIONS, LLV_SALA_ACTIONS, 0, LLV_PESCA_ACTIONS, LLV_PET_ACTIONS};
+    for (int w = 0; w < LLV_WORLD_COUNT; w++) {
+        const World *wd = engine_world(w);
+        CHECK(wd && has(wd->name, NAMES[w]));
+        CHECK(wd->render != NULL);
+        CHECK_EQ(wd->daily_actions, DAILY[w]);
+        CHECK(wd->on_tap != NULL || w == WORLD_RELOJ);
+    }
+    CHECK_EQ(WORLD_RELOJ, 0);
+    CHECK_EQ(WORLD_PESCA, 4);
+    static Engine e;
+    uint32_t ms = 1000;
+    int64_t now = t_noon();
+    engine_init(&e, 41, now, ms);
+    RawInput none = {0, false};
+    for (int i = 0; i < 40; i++)
+        engine_frame(&e, none, now, ms += 33);
+    e.gs.current_world = WORLD_RELOJ;
+    for (int k = 1; k <= 2 * LLV_WORLD_COUNT; k++) {
+        gesture(&e, BTN_B, now, &ms, 80);
+        CHECK_EQ(e.gs.current_world, k % LLV_WORLD_COUNT);
+        /* cada mundo se dibuja sin nada de "llega en fase N" y con el HUD */
+        for (int i = 0; i < 5; i++)
+            engine_frame(&e, none, now, ms += 33);
+    }
+    /* B (mantener): el mundo anterior, en el orden inverso. */
+    gesture(&e, BTN_B, now, &ms, LLV_HOLD_MS + 100);
+    CHECK_EQ(e.gs.current_world, LLV_WORLD_COUNT - 1);
+}
+
 int main(void)
 {
     struct { const char *name; TestFn fn; } tests[] = {
@@ -1390,6 +1424,7 @@ int main(void)
         {"diario: textos de pesca caben", test_diary_text_fits},
         {"render: la Pesca en todas las horas, climas y fases", test_render_pesca},
         {"cobertizo: coleccion de peces y fichas", test_cobertizo_collection},
+        {"los 6 mundos reales en el orden de la spec (sin relleno)", test_six_real_worlds},
     };
     int n = (int)(sizeof(tests) / sizeof(tests[0])), ok = 0;
     for (int i = 0; i < n; i++)

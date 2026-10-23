@@ -517,9 +517,10 @@ static void panel_fish(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx
         gfx_text(fb, 9, PANEL_TOP + 36, "Récord de tamaño", C_GREY);
         snprintf(buf, sizeof(buf), "Capturas: %d", gs->fish.caught[sp]);
         gfx_text(fb, 9, PANEL_TOP + 44, buf, C_DARK);
-        if (sp == FISH_LEGEND)
-            gfx_text(fb, 110 - gfx_text_width("LEGENDARIO"), PANEL_TOP + 44, "LEGENDARIO", ((ctx->ms / 400) & 1) ? C_RED : C_ORANGE);
-        gfx_text(fb, 9, PANEL_TOP + 53, "Mantén: comentario", C_GREY);
+        if (sp == FISH_LEGEND) /* el objetivo final: la Pokédex lo marca */
+            gfx_text_center(fb, PANEL_TOP + 53, "LEGENDARIO", ((ctx->ms / 400) & 1) ? C_RED : C_ORANGE);
+        else
+            gfx_text(fb, 9, PANEL_TOP + 53, "Mantén: más", C_GREY);
     } else {
         snprintf(buf, sizeof(buf), "«%s»", f->humor);
         gfx_text(fb, 9, PANEL_TOP + 5, buf, C_BLUE_TXT);

@@ -63,6 +63,13 @@ target_link_libraries(llv_hal_audio PUBLIC llv_core)
 add_executable(llv_headless src/platform/headless/main.c src/platform/headless/hal_audio_stub.c)
 target_link_libraries(llv_headless PRIVATE llv_util llv_hal_audio)
 
+# La alfa (fase 5): 14 días de uso realista por los 6 mundos (con una lombriz extra al día para ejercitar la
+# pesca), con ausencias, guardado a mitad y comprobación de invariantes. Falla si alguna se rompe.
+add_test(NAME alfa_14_dias COMMAND llv_headless --date "2026-10-22 08:00" --seed 7 --out ${CMAKE_BINARY_DIR}
+         alpha 14 ${CMAKE_BINARY_DIR}/informe_alfa.txt stock)
+add_test(NAME alfa_14_dias_invierno COMMAND llv_headless --date "2027-02-03 08:00" --seed 21 --out ${CMAKE_BINARY_DIR}
+         alpha 14 ${CMAKE_BINARY_DIR}/informe_alfa_invierno.txt)
+
 # Banco de pruebas de la música: renderiza semillas a WAV, mide y juzga (make music).
 add_executable(llv_music src/platform/headless/music_tool.c)
 target_link_libraries(llv_music PRIVATE llv_util)

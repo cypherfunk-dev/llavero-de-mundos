@@ -58,6 +58,14 @@ const FishGame *pesca_game(void) { return S.phase == PESCA_FIGHT ? &S.game : NUL
 const FishPlan *pesca_plan(void) { return &S.plan; }
 const FishResult *pesca_result(void) { return &S.res; }
 
+void pesca_debug_force(int idx, int size)
+{
+    if (S.phase == PESCA_IDLE || S.phase == PESCA_RESULT || !fish_info(idx))
+        return;
+    S.plan.idx = (uint8_t)idx;
+    S.plan.size = (uint8_t)(size > 0 ? size : fish_info(idx)->smax);
+}
+
 /* ---------- textos ---------- */
 
 static void duration_text(char *buf, size_t n, int64_t secs) /* n >= 32 */
@@ -156,7 +164,7 @@ static void finish(GameState *gs, const WorldCtx *ctx, bool won)
         world_tone(ctx, 784, 90);
     }
     if (S.res.complete)
-        world_toast(ctx, "¡Colección de peces\ncompleta!", 3600);
+        world_toast(ctx, "¡Peces completos!", 3600);
 }
 
 static void pesca_frame(GameState *gs, const WorldCtx *ctx)
@@ -325,14 +333,17 @@ static void sky_and_far(Framebuffer *fb, const GameState *gs, const WorldCtx *ct
                     for (int x = -7; x <= 7; x++)
                         if (x * x + y * y <= 49 && ((x + y) & 1) == 0)
                             gfx_pset(fb, mx + x, my + y, C_SKY_N4);
-            gfx_ellipse(fb, mx, my, 4, 4, ph == 0 ? C_SKY_N2 : C_MOON);
-            if (ph != 0 && ph != 4) { /* el resto de fases: un círculo del color del cielo tapa la parte oscura */
-                static const int8_t OCC[8] = {0, -3, -1, 2, 0, -2, 1, 3};
-                int dx = OCC[ph] * 2;
-                gfx_ellipse(fb, mx + dx, my, 4, 4, SKY[p][1]);
-                if (ph <= 3 || ph >= 5)
-                    gfx_pset(fb, mx - dx / 2, my, C_MOON);
-            }
+            /* la luna con su fase: el disco menos otro disco desplazado (la parte a oscuras) */
+            static const int8_t OCC[8] = {0, -2, -4, -6, 0, 6, 4, 2}; /* 0 nueva, 4 llena; creciente a la derecha */
+            for (int y = -4; y <= 4; y++)
+                for (int x = -4; x <= 4; x++) {
+                    if (x * x + y * y > 17)
+                        continue;
+                    if (ph == 0)
+                        gfx_pset(fb, mx + x, my + y, C_SKY_N2); /* luna nueva: apenas un disco oscuro */
+                    else if (ph == 4 || (x - OCC[ph]) * (x - OCC[ph]) + y * y > 17)
+                        gfx_pset(fb, mx + x, my + y, C_MOON);
+                }
         }
     }
     /* nubes: blancas de día, grises y bajas con lluvia */
@@ -561,13 +572,13 @@ static void card(Framebuffer *fb, const WorldCtx *ctx)
         return;
     }
     if (legend)
-        gfx_text(fb, 50, y + 7, "¡LEGENDARIO!", ((ctx->ms / 250) & 1) ? C_RED : C_ORANGE);
+        gfx_text(fb, 50, y + 7, "¡LEYENDA!", ((ctx->ms / 250) & 1) ? C_RED : C_ORANGE);
     else if (S.res.new_species)
         gfx_text(fb, 50, y + 7, "¡NUEVO!", ((ctx->ms / 300) & 1) ? C_RED : C_ORANGE);
     else if (S.res.record)
         gfx_text(fb, 50, y + 7, "¡RÉCORD!", ((ctx->ms / 300) & 1) ? C_BLUE_TXT : C_ORANGE);
     else if (f->junk)
-        gfx_text(fb, 50, y + 7, "Basura simpática", C_GREY);
+        gfx_text(fb, 50, y + 7, "Un trasto", C_GREY);
     else
         gfx_text(fb, 50, y + 7, "¡Pescado!", C_BLUE_TXT);
     int lines = gfx_text_wrap(fb, 50, y + 17, 62, f->name, C_DARK);
