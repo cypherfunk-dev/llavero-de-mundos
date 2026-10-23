@@ -19,8 +19,10 @@ add_library(llv_core STATIC
   src/core/engine.c src/core/state.c src/core/input.c src/core/gfx.c src/core/font.c
   src/core/timeutil.c src/core/rng.c
   src/core/garden.c src/core/garden_data.c src/core/pet.c src/core/art.c
+  src/core/phrases.c src/core/phrases_data.c src/core/talk.c src/core/director.c src/core/habits.c
+  src/core/cast.c src/core/overlays.c
   src/core/worlds/reloj.c src/core/worlds/jardin.c src/core/worlds/cobertizo.c
-  src/core/worlds/placeholder.c)
+  src/core/worlds/sala.c src/core/worlds/placeholder.c)
 target_include_directories(llv_core PUBLIC src/core)
 if(LLV_MATH)
   target_link_libraries(llv_core PUBLIC ${LLV_MATH})
@@ -35,6 +37,16 @@ enable_testing()
 add_executable(llv_tests tests/test_main.c)
 target_link_libraries(llv_tests PRIVATE llv_core)
 add_test(NAME llv_tests COMMAND llv_tests)
+
+# Frases (spec §5): data/frases/*.txt -> src/core/phrases_data.c (se versiona ya generado).
+# `cmake --build build --target phrases` lo regenera; ctest comprueba que está al día.
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_FOUND)
+  add_custom_target(phrases COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/phrases2bin.py
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMENT "Regenerando src/core/phrases_data.c")
+  add_test(NAME phrases_tool COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/phrases2bin.py --selftest)
+  add_test(NAME phrases_data_al_dia COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/phrases2bin.py --check)
+endif()
 
 # Herramienta headless: sin SDL.
 add_executable(llv_headless src/platform/headless/main.c)

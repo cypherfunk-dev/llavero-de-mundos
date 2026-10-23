@@ -3,6 +3,8 @@
  *   mantener A inhala, soltar exhala, y un toque sale del ejercicio.
  * A (mantener): prepara el objeto bajo el cursor para la próxima acción del Jardín, o
  *   cuida a la mascota (1 al día). La primera vez se elige mascota: toque cicla, mantener confirma.
+ * A (mantener) sobre la colección: abre AJUSTES (spec §3.3): activar y desactivar cada hábito y
+ *   el modo apto para la abuela. Dentro, A (toque) baja de fila y A (mantener) cambia o sale.
  * Todo lo de aquí que no es GameState es visual y efímero. */
 #include <math.h>
 #include <stdio.h>
@@ -10,6 +12,7 @@
 
 #include "../art.h"
 #include "../garden.h"
+#include "../habits.h"
 #include "../input.h"
 #include "../pet.h"
 #include "../timeutil.h"
@@ -28,6 +31,9 @@ static int breath_level;           /* 0..1000 */
 static int breath_cycles;
 static bool breath_full;
 static uint32_t joy_until;
+static bool menu_open;             /* AJUSTES de hábitos */
+static int menu_row;
+#define MENU_ROWS (HAB_COUNT + 2)  /* hábitos, modo abuela y salir */
 
 static uint32_t hash(uint32_t v)
 {
@@ -62,6 +68,13 @@ void cobertizo_ui_reset(void)
     breath_level = breath_cycles = 0;
     breath_full = false;
     joy_until = 0;
+    menu_open = false;
+    menu_row = 0;
+}
+
+bool cobertizo_menu_open(void)
+{
+    return menu_open;
 }
 
 bool cobertizo_on_pet(const GameState *gs)
@@ -90,9 +103,19 @@ static void cobertizo_tap(GameState *gs, const WorldCtx *ctx)
         choose = choose % (PET_COUNT - 1) + 1;
         return;
     }
+    if (menu_open) {
+        menu_row = (menu_row + 1) % MENU_ROWS;
+        return;
+    }
     if (breathing) {
         breathing = false;
         cursor = 0;
+        /* Respirar con la mascota es un hábito: con 3 respiraciones completas, ella se alegra. */
+        if (breath_cycles >= 3 && habit_enabled(gs, HAB_PAUSA) && !(gs->hab.done_today >> HAB_PAUSA & 1)) {
+            habit_breath(gs, breath_cycles);
+            joy_until = ctx->ms + 3500;
+            world_toast(ctx, "Tu mascota está contenta.", 2600);
+        }
         return;
     }
     if (on_pet(gs)) {
@@ -120,6 +143,17 @@ static void cobertizo_hold(GameState *gs, const WorldCtx *ctx)
     }
     if (breathing)
         return; /* la pulsación larga es la inhalación */
+    if (menu_open) {
+        if (menu_row < HAB_COUNT) {
+            habit_set_enabled(gs, menu_row, !habit_enabled(gs, menu_row));
+        } else if (menu_row == HAB_COUNT) {
+            gs->flags = (uint8_t)(gs->flags ^ SF_GRANDMA);
+        } else {
+            menu_open = false;
+            menu_row = 0;
+        }
+        return;
+    }
     int c = cursor % positions(gs);
     if (on_pet(gs)) {
         CareResult r = pet_care(gs, ctx->index, msg, sizeof(msg));
@@ -136,8 +170,10 @@ static void cobertizo_hold(GameState *gs, const WorldCtx *ctx)
             world_toast(ctx, msg, 2600);
         }
     } else {
+        menu_open = true;
+        menu_row = 0;
         snprintf(msg, sizeof(msg), "Colección: %d de %d.", collected(gs), COLL_COUNT);
-        world_toast(ctx, msg, 2000);
+        world_toast(ctx, msg, 1600);
     }
 }
 
@@ -449,6 +485,30 @@ static void panel_breath(Framebuffer *fb, const WorldCtx *ctx)
     gfx_text_center(fb, PANEL_TOP + 53, "Toca A para salir", C_GREY);
 }
 
+static void panel_menu(Framebuffer *fb, const GameState *gs)
+{
+    gfx_textbox(fb, 3, 11, 114, 108);
+    gfx_text_center(fb, 16, "AJUSTES", C_BLUE_TXT);
+    for (int r = 0; r < MENU_ROWS; r++) {
+        int y = 27 + r * 9;
+        char line[32];
+        bool on;
+        if (r < HAB_COUNT) {
+            on = habit_enabled(gs, r);
+            snprintf(line, sizeof(line), "[%c] %s", on ? 'x' : ' ', habit_title(r));
+        } else if (r == HAB_COUNT) {
+            on = (gs->flags & SF_GRANDMA) != 0;
+            snprintf(line, sizeof(line), "[%c] Apto abuela", on ? 'x' : ' ');
+        } else {
+            snprintf(line, sizeof(line), "Salir");
+        }
+        if (r == menu_row)
+            gfx_rect(fb, 7, y - 1, 106, 9, C_BLUE_TXT);
+        gfx_text(fb, 11, y, line, r == menu_row ? C_WHITE : C_DARK);
+    }
+    gfx_text_center(fb, 108, "A: mover  Mant: ok", C_GREY);
+}
+
 /* Estado visual de la respiración: solo depende de lo que pasa en pantalla. */
 static void breath_update(const WorldCtx *ctx)
 {
@@ -476,6 +536,10 @@ static void cobertizo_render(const GameState *gs, const WorldCtx *ctx, Framebuff
     const Pet *p = &gs->pet;
     if (p->kind == PET_NONE) {
         panel_choose(fb, ctx);
+        return;
+    }
+    if (menu_open) {
+        panel_menu(fb, gs);
         return;
     }
     if (breathing)

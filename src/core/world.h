@@ -15,6 +15,13 @@ typedef struct {
     uint32_t ms;   /* reloj monótono en ms, para animaciones */
     uint8_t index; /* posición del mundo en el ciclo de B */
     uint8_t buttons; /* botones pulsados ahora (BTN_A | BTN_B), p. ej. para respirar */
+    /* El cuerpo del llavero (lo pone la HAL, spec §5.1) y estado de la mirada. */
+    bool shaken;       /* lo han agitado hace un momento */
+    uint8_t battery;   /* 1..100; 0 = no se sabe */
+    bool charging;
+    bool absent;       /* sorpresa "salí, vuelvo en 5 min": este mundo está vacío */
+    /* Pitido (spec §5.2: un pitido por letra). Puede ser NULL (tests). */
+    void (*tone)(void *user, uint16_t freq, uint16_t ms);
     /* Mensaje breve sobre la escena (lo dibuja el motor). Puede ser NULL (tests). */
     void (*toast)(void *user, const char *text, uint32_t ms, uint32_t duration);
     void *user;
@@ -33,6 +40,7 @@ typedef struct {
     void (*render)(const GameState *gs, const WorldCtx *ctx, Framebuffer *fb);
     void (*on_tap)(GameState *gs, const WorldCtx *ctx);  /* puede ser NULL */
     void (*on_hold)(GameState *gs, const WorldCtx *ctx); /* puede ser NULL */
+    void (*on_shake)(GameState *gs, const WorldCtx *ctx);/* agitar con este mundo abierto; puede ser NULL */
 } World;
 
 /* true si 'until' aún no ha llegado; tolera que el contador de ms dé la vuelta (~49 días).
@@ -53,6 +61,9 @@ extern const World world_cobertizo;
 /* Ayudas de interfaz del Cobertizo para tests y herramientas: el cursor es solo visual. */
 void jardin_ui_reset(void);
 void cobertizo_ui_reset(void);
+void sala_ui_reset(void);
+/* El menú de hábitos del Cobertizo (mantener A sobre la colección). */
+bool cobertizo_menu_open(void);
 bool cobertizo_on_pet(const GameState *gs);
 bool cobertizo_breathing(void);
 

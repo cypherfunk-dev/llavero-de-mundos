@@ -28,6 +28,11 @@ static char warp_label[16];
 static bool shake_flag;
 static bool shot_flag;
 
+/* Cuerpo simulado (tecla W: camina 1000 pasos; tecla 4: alterna batería baja) y LED. */
+static uint32_t sim_steps;
+static bool sim_batt_low;
+static bool led_on;
+
 /* Audio: cola de tonos consumida desde el callback. */
 static SDL_AudioDeviceID audio_dev;
 static Tone queue[TONE_QUEUE];
@@ -179,10 +184,30 @@ void hal_display_present(const Framebuffer *fb, bool screen_on)
     } else {
         memset(pixels, 0, (size_t)w * (size_t)h * sizeof(uint32_t));
     }
+    /* El LED de aviso es un punto naranja en la esquina (se ve incluso con la pantalla apagada);
+     * se guarda lo que tapa para que las capturas salgan limpias. */
+    int led_r = cfg.scale * 2, led_x = w - cfg.scale * 6, led_y = cfg.scale * 6;
+    static uint32_t under[1024];
+    int led_n = 0;
+    if (led_on && (2 * led_r + 1) * (2 * led_r + 1) <= 1024) {
+        for (int j = -led_r; j <= led_r; j++)
+            for (int i = -led_r; i <= led_r; i++, led_n++) {
+                int idx = (led_y + j) * w + led_x + i;
+                under[led_n] = pixels[idx];
+                if (i * i + j * j <= led_r * led_r)
+                    pixels[idx] = 0xFFF08020u;
+            }
+    }
     SDL_UpdateTexture(tex, NULL, pixels, w * (int)sizeof(uint32_t));
     SDL_RenderClear(ren);
     SDL_RenderCopy(ren, tex, NULL, NULL);
     SDL_RenderPresent(ren);
+    if (led_n) {
+        led_n = 0;
+        for (int j = -led_r; j <= led_r; j++)
+            for (int i = -led_r; i <= led_r; i++, led_n++)
+                pixels[(led_y + j) * w + led_x + i] = under[led_n];
+    }
 
     if (shot_flag && screen_on) {
         shot_flag = false;
@@ -234,6 +259,8 @@ bool hal_input_poll(RawInput *in)
             switch (ev.key.keysym.scancode) {
             case SDL_SCANCODE_ESCAPE: run = false; break;
             case SDL_SCANCODE_S: shake_flag = true; break;
+            case SDL_SCANCODE_W: sim_steps += 1000; break;
+            case SDL_SCANCODE_4: sim_batt_low = !sim_batt_low; break;
             case SDL_SCANCODE_1: add_warp(3600, "+1 h"); break;
             case SDL_SCANCODE_2: add_warp(86400, "+1 día"); break;
             case SDL_SCANCODE_3: add_warp(7 * 86400, "+1 semana"); break;
@@ -253,6 +280,20 @@ bool hal_input_poll(RawInput *in)
     in->shake = shake_flag;
     shake_flag = false;
     return run;
+}
+
+/* ---------- body y led ---------- */
+
+void hal_body_read(uint8_t *battery, bool *charging, uint32_t *steps)
+{
+    *battery = sim_batt_low ? 12 : 87;
+    *charging = false;
+    *steps = sim_steps;
+}
+
+void hal_led_set(bool on)
+{
+    led_on = on;
 }
 
 /* ---------- clock ---------- */

@@ -195,9 +195,49 @@ static void big_time(Framebuffer *fb, const CivilTime *c, int y, Color col, Colo
     gfx_digits(fb, x, y, t, col, 4);
 }
 
-static void style_celeste(Framebuffer *fb, const CivilTime *c, int64_t now, uint32_t ms)
+/* Amanecer especial (spec §3.3): una buena racha de sueño ilumina el amanecer con rayos y destellos. */
+static bool good_sunrise(const GameState *gs, const CivilTime *c)
+{
+    int m = c->hour * 60 + c->minute;
+    return gs->hab.sleep_streak >= LLV_SLEEP_STREAK_GOOD && m >= 6 * 60 && m < 8 * 60 + 30;
+}
+
+static void sunrise_special(Framebuffer *fb, const CivilTime *c, uint32_t ms, int nights)
+{
+    int m = c->hour * 60 + c->minute;
+    float f = (float)(m - LLV_SUNRISE_MIN) / (float)(LLV_SUNSET_MIN - LLV_SUNRISE_MIN);
+    if (f < 0.0f)
+        f = 0.0f;
+    int sx = 6 + (int)(f * 108), sy = 90 - (int)(sinf(PI_F * f) * 40);
+    gfx_dither(fb, 0, 76, LLV_W, 14, C_SKY_S4, C_SKY_S3); /* el horizonte se enciende */
+    float spin = (float)(ms % 6000) / 6000.0f * 2.0f * PI_F;
+    for (int k = 0; k < 12; k++) { /* rayos que giran despacio */
+        float a = spin + (float)k * PI_F / 6.0f;
+        int len = (k & 1) ? 12 : 17;
+        for (int r = 10; r < 10 + len; r++)
+            gfx_pset(fb, sx + (int)(cosf(a) * (float)r), sy + (int)(sinf(a) * (float)r),
+                     (k & 1) ? C_SUN_CORE : C_SUN);
+    }
+    gfx_ellipse(fb, sx, sy, 7, 7, C_SUN);
+    gfx_ellipse(fb, sx - 1, sy - 1, 4, 4, C_SUN_CORE);
+    for (int i = 0; i < 16; i++) { /* destellos */
+        uint32_t h = (uint32_t)(i * 2654435761u);
+        if ((ms / 250 + (uint32_t)i) % 4 == 0)
+            continue;
+        gfx_pset(fb, 4 + (int)(h % 112), LLV_HUD_H + 2 + (int)((h >> 9) % 60), i & 1 ? C_WHITE : C_SUN);
+    }
+    char chip[24];
+    snprintf(chip, sizeof(chip), "Amanecer: %d noches", nights > 99 ? 99 : nights);
+    int w = gfx_text_width(chip) + 8;
+    gfx_rect(fb, (LLV_W - w) / 2, 10, w, 10, C_DARK);
+    gfx_text_center(fb, 11, chip, C_SUN);
+}
+
+static void style_celeste(Framebuffer *fb, const GameState *gs, const CivilTime *c, int64_t now, uint32_t ms)
 {
     sky_scene(fb, c, now, ms);
+    if (good_sunrise(gs, c))
+        sunrise_special(fb, c, ms, gs->hab.sleep_streak);
     bool night = period_of(c->hour * 60 + c->minute) == P_NIGHT;
     big_time(fb, c, 20, night ? C_MOON : C_WHITE, night ? C_SKY_N4 : C_BLUE_TXT);
     char date[20];
@@ -355,7 +395,7 @@ static void reloj_render(const GameState *gs, const WorldCtx *ctx, Framebuffer *
 {
     CivilTime c = time_to_civil(ctx->now);
     switch (gs->reloj_style % STYLE_COUNT) {
-    case STYLE_CELESTE: style_celeste(fb, &c, ctx->now, ctx->ms); break;
+    case STYLE_CELESTE: style_celeste(fb, gs, &c, ctx->now, ctx->ms); break;
     case STYLE_PALABRAS: style_palabras(fb, &c, ctx->now, ctx->ms); break;
     case STYLE_BINARIO: style_binario(fb, &c); break;
     case STYLE_CUANTICO: style_cuantico(fb, &c, ctx->ms); break;

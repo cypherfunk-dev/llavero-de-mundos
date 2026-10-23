@@ -5,13 +5,27 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../../core/director.h"
 #include "../../core/engine.h"
 #include "../../core/garden.h"
+#include "../../core/habits.h"
 #include "../../core/pet.h"
+#include "../../core/phrases.h"
+#include "../../core/talk.h"
 #include "../../core/timeutil.h"
 #include "../../util/imgout.h"
 
 #define MAX_GRAB 48
+#define MAX_LOG 6000
+
+/* Una frase que apareció en pantalla (volcado de la semana). */
+typedef struct {
+    int64_t now;
+    uint8_t speaker, kind;
+    bool picaro;
+    uint16_t hash;
+    char text[160];
+} Said;
 
 typedef struct {
     Engine e;
@@ -31,7 +45,37 @@ typedef struct {
     uint32_t samples, ent_sum, ent_max;
     uint32_t sp_sum[SP_COUNT];
     uint32_t sp_max[SP_COUNT];
+    /* Cuerpo simulado (fase 3). */
+    uint8_t battery;
+    bool charging;
+    uint32_t steps;
+    /* Frases vistas y estadísticas de la Sala. */
+    Said said[MAX_LOG];
+    int said_n;
+    Rng rng;                      /* la "persona" que usa el llavero: aleatoria pero siempre igual */
+    uint32_t surprise_hist[DS_COUNT];
+    uint32_t world_open[LLV_WORLD_COUNT];
+    uint32_t looks_sim;
 } Sim;
+
+static Sim *g_sim; /* para el observador de frases */
+
+static void on_said(void *user, int speaker, int kind, bool picaro, const char *text)
+{
+    Sim *s = user;
+    if (s->said_n >= MAX_LOG)
+        return;
+    Said *d = &s->said[s->said_n++];
+    d->now = s->now;
+    d->speaker = (uint8_t)speaker;
+    d->kind = (uint8_t)kind;
+    d->picaro = picaro;
+    uint32_t h = 2166136261u;
+    for (const char *p = text; *p; p++)
+        h = (h ^ (uint8_t)*p) * 16777619u;
+    d->hash = (uint16_t)(h ^ h >> 16);
+    snprintf(d->text, sizeof(d->text), "%s", text);
+}
 
 /* Cuenta lo nuevo del diario. Si se acumulan más de 64 eventos entre dos miradas, los
  * que se pisaron se cuentan aparte (ev_lost). */
@@ -76,6 +120,7 @@ static void frame(Sim *s, uint32_t dt, uint8_t buttons, bool shake)
     s->now += s->sub_ms / 1000;
     s->sub_ms %= 1000;
     RawInput in = {buttons, shake};
+    engine_set_body(&s->e, s->battery, s->charging, s->steps);
     s->out = engine_frame(&s->e, in, s->now, s->ms);
     track(s);
 }
@@ -126,6 +171,10 @@ static void wake_if_needed(Sim *s)
     if (s->e.asleep) {
         frame(s, 20, 0, true);
         idle(s, LLV_COLLAPSE_MS + 150);
+        /* Las sorpresas de arranque (consola falsa, colapso largo) se llevan los gestos un rato. */
+        for (int guard = 0; guard < 200 && (ms_pending(s->ms, s->e.collapse_until_ms) ||
+                                            ms_pending(s->ms, s->e.boot_until_ms)); guard++)
+            frame(s, 20, 0, false);
     }
 }
 
@@ -291,6 +340,8 @@ static const char *const EV_LABEL[EV_KIND_COUNT] = {
     [EV_DISCOVER] = "descubrimientos", [EV_PET_CHOSEN] = "mascota elegida", [EV_PET_STAGE] = "mascota crece",
     [EV_PET_GEN] = "mascota: generación", [EV_PET_CARE] = "cuidados", [EV_PET_WORD] = "palabra del hongo",
     [EV_PET_SPORES] = "esporas", [EV_PET_COMPOST] = "compostera come",
+    [EV_VISITOR] = "visitas a la Sala", [EV_HABIT] = "hábitos cumplidos", [EV_WALK] = "paseos largos",
+    [EV_PATIENCE] = "bono de paciencia",
 };
 
 static void stats(const Sim *s)
@@ -325,6 +376,289 @@ static void stats(const Sim *s)
     printf("== objetos usados ==\n");
     for (int k = 1; k < ITEM_COUNT; k++)
         printf("  %-8s %u\n", state_item_name((ItemKind)k), s->items_used[k]);
+}
+
+
+/* ---------- la Sala (fase 3) ---------- */
+
+#define TYPE_WAIT_MS 3900   /* lo que tarda en escribirse la frase más larga */
+
+static void talk_a(Sim *s)
+{
+    wake_if_needed(s);
+    tap(s, BTN_A);
+    idle(s, TYPE_WAIT_MS);
+}
+
+static void answer(Sim *s, bool yes)
+{
+    wake_if_needed(s);
+    if (yes)
+        tap(s, BTN_A);
+    else
+        hold(s, BTN_A);
+    idle(s, TYPE_WAIT_MS);
+}
+
+static void bell(Sim *s)
+{
+    wake_if_needed(s);
+    hold(s, BTN_A);
+    idle(s, TYPE_WAIT_MS);
+}
+
+/* El código secreto B B A A B A B A, con toques rápidos. */
+static void secret_code(Sim *s)
+{
+    wake_if_needed(s);
+    static const char CODE[] = "BBAABABA";
+    for (int i = 0; CODE[i]; i++) {
+        press(s, CODE[i] == 'A' ? BTN_A : BTN_B, 60);
+        idle(s, 120);
+    }
+    idle(s, TYPE_WAIT_MS);
+}
+
+static PhraseEnv sim_env(const Sim *s)
+{
+    PhraseEnv e = {s->now, false, s->battery, s->charging};
+    return e;
+}
+
+static int speaker_by_name(const char *n)
+{
+    for (int i = 1; i < SPK_COUNT; i++)
+        if (!strcmp(n, speaker_vocab(i)))
+            return i;
+    return 0;
+}
+
+static int surprise_by_name(const char *n)
+{
+    static const char *const N[DS_COUNT] = {"", "glitch", "arranque", "ausencia", "invasion", "cuarta",
+                                           "calendario", "rebeldia", "colapso", "gato", "moneda"};
+    for (int i = 1; i < DS_COUNT; i++)
+        if (!strcmp(n, N[i]))
+            return i;
+    return 0;
+}
+
+/* Una mirada de la semana: abre lo que decida el Director, atiende sus sorpresas y habla con la gente. */
+static void week_look(Sim *s)
+{
+    wake_if_needed(s);
+    GameState *g = &s->e.gs;
+    s->looks_sim++;
+    s->world_open[g->current_world]++;
+    s->surprise_hist[g->dir.cur]++;
+    s->steps += rng_below(&s->rng, 2200);
+    s->battery = (uint8_t)(10 + rng_below(&s->rng, 80));
+    idle(s, 600);
+    /* Atiende la sorpresa como lo haría una persona. */
+    switch (g->dir.cur) {
+    case DS_GLITCH:
+        idle(s, 1500);
+        frame(s, 20, 0, true); /* agita */
+        idle(s, 600);
+        break;
+    case DS_MONEDA:
+        idle(s, 1200);
+        tap(s, BTN_A);
+        break;
+    case DS_GATO:
+    case DS_CUARTA_PARED:
+    case DS_CALENDARIO:
+        idle(s, TYPE_WAIT_MS);
+        break;
+    case DS_REBELDIA:
+        if (rng_below(&s->rng, 100) < 70) {
+            tap(s, BTN_B);
+            idle(s, TYPE_WAIT_MS);
+        }
+        break;
+    default:
+        break;
+    }
+    uint32_t r = rng_below(&s->rng, 100);
+    if (r < 70) { /* a charlar */
+        goto_world(s, WORLD_SALA);
+        idle(s, 800);
+        int convs = 1 + (rng_below(&s->rng, 100) < 45 ? 1 : 0) + (rng_below(&s->rng, 100) < 10 ? 1 : 0);
+        for (int c = 0; c < convs; c++) {
+            if (rng_below(&s->rng, 100) < 12)
+                bell(s);
+            else
+                talk_a(s);
+            for (int guard = 0; guard < 8; guard++) {
+                const Sala *sa = &s->e.gs.sala;
+                if (sa->stage == DLG_ASK) {
+                    answer(s, rng_below(&s->rng, 100) < 70);
+                } else if (sa->stage == DLG_SAY && sa->scene > 0) {
+                    talk_a(s);
+                } else {
+                    break;
+                }
+            }
+        }
+        if (rng_below(&s->rng, 100) < 15) { /* agita el llavero */
+            frame(s, 20, 0, true);
+            idle(s, TYPE_WAIT_MS);
+        }
+    } else if (r < 85) { /* un vistazo al jardín y un objeto */
+        goto_world(s, WORLD_JARDIN);
+        idle(s, 2000);
+        tap(s, BTN_A);
+        idle(s, 2500);
+    } else { /* mascota y respirar */
+        look(s, 1);
+    }
+    idle(s, 1500);
+}
+
+static void week(Sim *s, int days)
+{
+    int64_t midnight = time_floor_div(s->now, LLV_SECONDS_PER_DAY) * LLV_SECONDS_PER_DAY;
+    static const int SLOT[6] = {450, 570, 750, 930, 1110, 1290}; /* minutos del día: 7:30 ... 21:30 */
+    for (int d = 0; d < days; d++) {
+        int n = 4 + (int)rng_below(&s->rng, 3);
+        int times[8], k = 0;
+        if (rng_below(&s->rng, 100) < 30) /* mirada de madrugada */
+            times[k++] = 60 + (int)rng_below(&s->rng, 200);
+        for (int i = 0; i < n && k < 8; i++)
+            times[k++] = SLOT[i] + (int)rng_below(&s->rng, 70) - 35;
+        if (d == 4) { /* un día de "ausencia": solo se asoma por la noche */
+            times[0] = 1290;
+            k = 1;
+        }
+        for (int i = 0; i < k; i++) {
+            int64_t at = midnight + (int64_t)d * LLV_SECONDS_PER_DAY + times[i] * 60;
+            if (at < s->now)
+                continue;
+            advance(s, at - s->now);
+            week_look(s);
+        }
+    }
+}
+
+static const char *const KIND_LABEL[PK_COUNT] = {
+    [PK_CHARLA] = "charla", [PK_RELLENO] = "relleno", [PK_SINACCIONES] = "sin acciones",
+    [PK_CUARTA_PARED] = "cuarta pared", [PK_REBELDIA] = "rebeldía", [PK_TIMBRE] = "timbre",
+    [PK_INVASION] = "invasión", [PK_PREGUNTA] = "pregunta", [PK_SI] = "reacción sí",
+    [PK_NO] = "reacción no", [PK_MENTIRA] = "mentira", [PK_RETOMA] = "retoma", [PK_ESCENA] = "escena",
+    [PK_COMENTARIO] = "comentario", [PK_GLITCH] = "glitch", [PK_GLITCH_OK] = "glitch ok",
+    [PK_CARTEL] = "cartel", [PK_MONEDA] = "moneda",
+};
+
+static void dump_phrases(const Sim *s, const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) {
+        fprintf(stderr, "no se pudo escribir %s\n", path);
+        return;
+    }
+    fprintf(f, "# Frases que aparecieron en pantalla (%d), en orden. (p) = tono pícaro.\n", s->said_n);
+    int last_day = -1;
+    for (int i = 0; i < s->said_n; i++) {
+        const Said *d = &s->said[i];
+        CivilTime c = time_to_civil(d->now);
+        int day = (int)time_floor_div(d->now, LLV_SECONDS_PER_DAY);
+        if (day != last_day) {
+            fprintf(f, "\n## %04d-%02d-%02d\n", c.year, c.month, c.day);
+            last_day = day;
+        }
+        fprintf(f, "%02d:%02d  %-8s %-12s %s%s\n", c.hour, c.minute,
+                d->speaker == SPK_SISTEMA ? "Sistema" : speaker_short(d->speaker),
+                KIND_LABEL[d->kind], d->picaro ? "(p) " : "", d->text);
+    }
+    fclose(f);
+    printf("%s\n", path);
+}
+
+static void sala_stats(const Sim *s, int64_t start)
+{
+    int total = s->said_n, distinct = 0, repeats30 = 0, picaro = 0;
+    int per_spk[SPK_COUNT] = {0}, per_kind[PK_COUNT] = {0};
+    int days = 1 + (int)(time_floor_div(s->now, LLV_SECONDS_PER_DAY) - time_floor_div(start, LLV_SECONDS_PER_DAY));
+    if (days > 16)
+        days = 16;
+    int q_day[16] = {0}, said_day[16] = {0}, hab_q_day[16] = {0};
+    int64_t day0 = time_floor_div(start, LLV_SECONDS_PER_DAY);
+    for (int i = 0; i < total; i++) {
+        const Said *d = &s->said[i];
+        bool seen = false;
+        for (int j = 0; j < i && !seen; j++)
+            seen = s->said[j].hash == d->hash && s->said[j].speaker == d->speaker;
+        distinct += !seen;
+        for (int j = i > 30 ? i - 30 : 0; j < i; j++)
+            if (s->said[j].hash == d->hash && s->said[j].speaker == d->speaker &&
+                d->kind != PK_ESCENA && d->kind != PK_SI && d->kind != PK_NO) {
+                repeats30++;
+                break;
+            }
+        picaro += d->picaro;
+        per_spk[d->speaker]++;
+        per_kind[d->kind]++;
+        int day = (int)(time_floor_div(d->now, LLV_SECONDS_PER_DAY) - day0);
+        if (day >= 0 && day < 16) {
+            said_day[day]++;
+            if (d->kind == PK_PREGUNTA)
+                q_day[day]++;
+        }
+    }
+    (void)hab_q_day;
+    printf("== La Sala: %d miradas simuladas, %d frases mostradas ==\n", (int)s->looks_sim, total);
+    printf("frases distintas vistas: %d  |  repetidas: %d (%d %%)  |  repetidas dentro de las últimas 30: %d\n",
+           distinct, total - distinct, total ? 100 * (total - distinct) / total : 0, repeats30);
+    printf("pícaras: %d (%d %%)\n", picaro, total ? 100 * picaro / total : 0);
+    printf("por personaje:");
+    for (int i = 1; i < SPK_COUNT; i++)
+        if (per_spk[i])
+            printf(" %s %d", i == SPK_SISTEMA ? "Sistema" : speaker_short(i), per_spk[i]);
+    printf("\npor propósito:");
+    for (int i = 0; i < PK_COUNT; i++)
+        if (per_kind[i])
+            printf(" %s %d", KIND_LABEL[i], per_kind[i]);
+    printf("\nfrases por día:");
+    for (int d = 0; d < days; d++)
+        printf(" %d", said_day[d]);
+    printf("\npreguntas por día:");
+    for (int d = 0; d < days; d++)
+        printf(" %d", q_day[d]);
+    uint32_t surprises = 0;
+    printf("\nsorpresas (por tipo):");
+    for (int i = 1; i < DS_COUNT; i++) {
+        surprises += s->surprise_hist[i];
+        if (s->surprise_hist[i])
+            printf(" %s %u", surprise_name(i), s->surprise_hist[i]);
+    }
+    printf("\nsorpresas: %u en %d días (%.1f al día), tiradas del Director: %u\n", surprises, days,
+           (double)surprises / (double)days, (unsigned)s->e.gs.dir.rolls);
+    printf("mundo abierto al despertar:");
+    static const char *const WN[LLV_WORLD_COUNT] = {"Reloj", "Jardín", "Sala", "Música", "Pesca", "Cobertizo"};
+    for (int i = 0; i < LLV_WORLD_COUNT; i++)
+        printf(" %s %u", WN[i], s->world_open[i]);
+    printf("\n");
+    const GameState *g = &s->e.gs;
+    printf("memoria de respuestas:");
+    for (int q = 0; q < Q_COUNT; q++)
+        if (g->sala.memo[q] & 3)
+            printf(" %s=%s", phrase_question_vocab(q), (g->sala.memo[q] & 3) == 1 ? "sí" : "no");
+    printf("\nhábitos cumplidos hoy 0x%02x, racha de sueño %u, racha de días %u, afinidad: abuela %u, robot %u\n",
+           g->hab.done_today, g->hab.sleep_streak, g->streak, g->sala.affinity[SPK_ABUELA],
+           g->sala.affinity[SPK_ROBOT]);
+    uint32_t habits = s->ev_hist[EV_HABIT];
+    printf("hábitos cumplidos en total: %u, paseos largos: %u\n", habits, s->ev_hist[EV_WALK]);
+}
+
+static void sala_info(const Sim *s)
+{
+    const Sala *sa = &s->e.gs.sala;
+    char buf[256];
+    talk_text(&s->e.gs, buf, sizeof(buf));
+    printf("sala: visitante %s | etapa %d | habla %s | quedan %d conversaciones | dir.cur %s | LED %d | ❗ 0x%02x | \"%s\"\n",
+           sa->visitor ? speaker_short(sa->visitor) : "-", sa->stage,
+           sa->who ? speaker_short(sa->who) : "-", LLV_SALA_ACTIONS - (int)s->e.gs.actions_used[WORLD_SALA],
+           surprise_name(s->e.gs.dir.cur), s->out.led, s->e.gs.news, buf);
 }
 
 /* ---------- parseo ---------- */
@@ -463,6 +797,19 @@ static void usage(const char *p)
            "                 en la bolsa y lo deja preparado para la próxima acción del Jardín\n"
            "  routine DIAS   uso normal: 4 miradas al día (jardín, mascota, objetos) durante DIAS días\n"
            "  stats          estado del jardín, medias, eventos y objetos usados\n"
+           "La Sala (fase 3):\n"
+           "  talk           toca A en la Sala (da pie) y espera a que se escriba la frase\n"
+           "  yes | no       contesta la pregunta pendiente (toque / mantener A)\n"
+           "  bell           mantiene A: toca el timbre\n"
+           "  code           teclea el código secreto B B A A B A B A\n"
+           "  visitor NOMBRE gotica|gamer|boomer|gato|none: pone un visitante en la Sala\n"
+           "  surprise TIPO  glitch|arranque|ausencia [mundo]|invasion|cuarta|calendario|rebeldia|colapso|gato|moneda\n"
+           "  ask PREGUNTA   fuerza esa pregunta (agua, dormir, plantas...)\n"
+           "  grandma on|off modo apto para la abuela;  habit NOMBRE on|off  activa o desactiva un hábito\n"
+           "  steps N | battery N | streak N | news MASCARA   cuerpo simulado y estados de prueba\n"
+           "  week DIAS      una semana de uso: varias miradas al día, charlas, preguntas y sorpresas\n"
+           "  salastats      estadísticas de la Sala (tras week);  dumpfrases ARCHIVO  volcado de todas las frases\n"
+           "  sala           resumen del estado de la Sala;  led  mira el LED de aviso con el llavero dormido\n"
            "  info           imprime un resumen del estado\n",
            p);
 }
@@ -471,7 +818,7 @@ int main(int argc, char **argv)
 {
     static Sim s;
     uint64_t seed = 1;
-    int64_t start;
+    int64_t start, week_start = 0;
     parse_date("2024-06-15 12:00", &start);
     s.scale = 3;
     s.dir = ".";
@@ -508,6 +855,9 @@ int main(int argc, char **argv)
 
     s.now = start;
     s.ms = 1000;
+    s.battery = 80;
+    g_sim = &s;
+    phrase_set_observer(on_said, &s);
     engine_init(&s.e, seed, s.now, s.ms);
     idle(&s, LLV_COLLAPSE_MS + 150);
 
@@ -569,6 +919,100 @@ int main(int argc, char **argv)
             g->prepared = (uint8_t)it;
         } else if (!strcmp(c, "routine") && m1) {
             routine(&s, atoi(argv[++i]));
+        } else if (!strcmp(c, "talk")) {
+            talk_a(&s);
+        } else if (!strcmp(c, "yes") || !strcmp(c, "no")) {
+            answer(&s, c[0] == 'y');
+        } else if (!strcmp(c, "bell")) {
+            bell(&s);
+        } else if (!strcmp(c, "code")) {
+            secret_code(&s);
+        } else if (!strcmp(c, "visitor") && m1) {
+            wake_if_needed(&s);
+            int v = speaker_by_name(argv[++i]);
+            s.e.gs.sala.visitor = (uint8_t)v;
+            s.e.gs.sala.visitor_left = v ? 36 : 0;
+        } else if (!strcmp(c, "surprise") && m1) {
+            wake_if_needed(&s);
+            int k = surprise_by_name(argv[++i]);
+            int arg = 0;
+            if (k == DS_AUSENCIA)
+                arg = (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '5') ? atoi(argv[++i]) : WORLD_SALA;
+            else if (k == DS_INVASION)
+                arg = (WORLD_JARDIN << 4) | SPK_GOTICA;
+            else if (k == DS_REBELDIA)
+                arg = SPK_ABUELA;
+            PhraseEnv env = sim_env(&s);
+            director_force(&s.e.gs, &env, k, arg);
+            idle(&s, 400);
+        } else if (!strcmp(c, "say") && m1) {
+            /* Fuerza una frase de ese personaje (para las capturas): say NOMBRE [pregunta|relleno|...] */
+            wake_if_needed(&s);
+            int spk = speaker_by_name(argv[++i]);
+            uint32_t kinds = PK_BIT(PK_CHARLA);
+            if (i + 1 < argc) {
+                static const char *const KN[] = {"charla", "relleno", "sinacciones", "cuarta", "rebeldia", "timbre",
+                                                 "invasion", "pregunta", "si", "no", "mentira", "retoma", "escena"};
+                for (unsigned k = 0; k < sizeof(KN) / sizeof(KN[0]); k++)
+                    if (!strcmp(argv[i + 1], KN[k])) {
+                        kinds = PK_BIT(k);
+                        i++;
+                        break;
+                    }
+            }
+            PhraseEnv env = sim_env(&s);
+            talk_say(&s.e.gs, &env, kinds, SPK_BIT(spk), -1);
+            idle(&s, TYPE_WAIT_MS);
+        } else if (!strcmp(c, "ask") && m1) {
+            wake_if_needed(&s);
+            const char *qn = argv[++i];
+            for (int q = 0; q < Q_COUNT; q++)
+                if (!strcmp(qn, phrase_question_vocab(q))) {
+                    PhraseEnv env = sim_env(&s);
+                    PhraseCtx pc;
+                    phrase_ctx_make(&pc, &s.e.gs, &env);
+                    talk_say(&s.e.gs, &env, PK_BIT(PK_PREGUNTA), pc.present, q);
+                }
+            idle(&s, TYPE_WAIT_MS);
+        } else if (!strcmp(c, "grandma") && m1) {
+            i++;
+            s.e.gs.flags = (uint8_t)(!strcmp(argv[i], "on") ? s.e.gs.flags | SF_GRANDMA : s.e.gs.flags & ~SF_GRANDMA);
+        } else if (!strcmp(c, "habit") && m2) {
+            static const char *const HVOC[HAB_COUNT] = {PV_HABITS(PV_NAME)};
+            for (int h = 0; h < HAB_COUNT; h++)
+                if (!strcmp(argv[i + 1], HVOC[h]))
+                    habit_set_enabled(&s.e.gs, h, !strcmp(argv[i + 2], "on"));
+            i += 2;
+        } else if (!strcmp(c, "steps") && m1) {
+            s.steps = (uint32_t)strtoul(argv[++i], NULL, 0);
+        } else if (!strcmp(c, "battery") && m1) {
+            s.battery = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(c, "streak") && m1) {
+            s.e.gs.hab.sleep_streak = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(c, "news") && m1) {
+            s.e.gs.news = (uint8_t)strtoul(argv[++i], NULL, 0);
+            s.e.gs.rare_unseen = 0;
+        } else if (!strcmp(c, "week") && m1) {
+            s.rng = (Rng){0, 0};
+            rng_seed(&s.rng, seed, 99);
+            week_start = s.now;
+            week(&s, atoi(argv[++i]));
+        } else if (!strcmp(c, "dumpfrases") && m1) {
+            dump_phrases(&s, argv[++i]);
+        } else if (!strcmp(c, "salastats")) {
+            sala_stats(&s, week_start ? week_start : start);
+        } else if (!strcmp(c, "sala")) {
+            sala_info(&s);
+        } else if (!strcmp(c, "led")) {
+            /* Con el llavero dormido, mira el LED de aviso en el instante en que parpadea. */
+            if (!s.e.asleep) {
+                advance(&s, 0);
+                idle(&s, LLV_SLEEP_AFTER_MS + 1000);
+            }
+            s.ms += (5000 - s.ms % 5000) % 5000;
+            frame(&s, 20, 0, false);
+            printf("LED: %s (sucesos raros sin ver: %u)\n", s.out.led ? "ENCENDIDO" : "apagado",
+                   (unsigned)s.e.gs.rare_unseen);
         } else if (!strcmp(c, "stats")) {
             stats(&s);
         } else if (!strcmp(c, "info")) {

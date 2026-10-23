@@ -18,7 +18,7 @@ static void usage(const char *prog)
            "  --frames N   sale solo tras N fotogramas (pruebas)\n"
            "  --shot F     con --frames, escribe una captura PNG al salir\n"
            "Teclas: Z/J=A  X/K=B  S=agitar  1/2/3=+1h/+1d/+1sem  F12/P=captura\n"
-           "        L=rejilla LCD  Esc=salir\n",
+           "        W=camina 1000 pasos  4=batería baja  L=rejilla LCD  Esc=salir\n",
            prog);
 }
 
@@ -77,7 +77,13 @@ int main(int argc, char **argv)
         if (sim_take_warp(label, sizeof(label)) && !engine.asleep)
             engine_toast(&engine, label, hal_clock_ms(), 1200);
 
+        uint8_t battery;
+        bool charging;
+        uint32_t steps;
+        hal_body_read(&battery, &charging, &steps);
+        engine_set_body(&engine, battery, charging, steps);
         FrameOut out = engine_frame(&engine, in, hal_clock_local_seconds(), hal_clock_ms());
+        hal_led_set(out.led);
         if (out.tone_count)
             hal_sound_play(out.tones, out.tone_count);
         if (out.save_now && !hal_save_engine(&engine))

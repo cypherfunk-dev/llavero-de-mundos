@@ -27,6 +27,14 @@ void hal_display_present(const Framebuffer *fb, bool screen_on);
  * y si hubo una sacudida desde la última llamada. false = hay que salir. */
 bool hal_input_poll(RawInput *in);
 
+/* ---------- body: batería y podómetro (spec §3.3, §5.1) ---------- */
+/* Lee el cuerpo del llavero: batería 1..100 (0 = no se sabe), si carga y el podómetro del IMU
+ * (contador que solo crece, también mientras duerme; 0 = sin sensor). El simulador los inventa. */
+void hal_body_read(uint8_t *battery, bool *charging, uint32_t *steps);
+
+/* ---------- led: aviso de "pasó algo raro mientras no mirabas" (spec §3.2) ---------- */
+void hal_led_set(bool on);
+
 /* ---------- clock ---------- */
 /* Hora local en "segundos locales" (ver timeutil.h): segundos desde 1970-01-01 00:00
  * contados en hora local. Debe seguir contando mientras el chip duerme. */

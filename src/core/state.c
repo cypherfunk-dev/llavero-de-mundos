@@ -5,10 +5,12 @@
 #include <stdio.h>
 
 #include "garden.h"
+#include "habits.h"
+#include "phrases.h"
 #include "timeutil.h"
 
 #define SAVE_MAGIC 0x31564C4Cu /* "LLV1" */
-#define SAVE_VERSION 2         /* v1 (fase 0) no tenía jardín ni mascota: se rechaza */
+#define SAVE_VERSION 3         /* v1 (fase 0) y v2 (fase 2) no tenían la Sala ni el Director: se rechazan */
 
 /* Peso de cada objeto al recargar la bolsa (spec §3.1). */
 static const uint8_t ITEM_WEIGHT[ITEM_COUNT] = {
@@ -41,6 +43,48 @@ void state_init(GameState *gs, uint64_t seed, int64_t now)
     gs->bag[1] = ITEM_SEMILLA;
     gs->bag_count = 2;
     garden_init(gs);
+    /* La Sala: todos empiezan con afinidad neutra, los hábitos activados y nada preguntado. */
+    for (int i = 0; i < SPK_COUNT; i++)
+        gs->sala.affinity[i] = LLV_AFF_START;
+    gs->hab.enabled = (uint8_t)((1u << HAB_COUNT) - 1u);
+    gs->dir.last_surprise_day = (uint16_t)gs->day_key;
+    gs->last_look_day = (uint16_t)gs->day_key;
+    gs->hab.steps_last = 0xFFFFFFFFu;     /* aún no hay lectura del podómetro */
+}
+
+/* Cada suceso del diario avisa al mundo al que pertenece (el ❗ del HUD) y queda "fresco"
+ * hasta que un personaje lo comenta. */
+int state_event_world(EventKind kind)
+{
+    switch (kind) {
+    case EV_APPLE_FALL: case EV_APPLE_ROT: case EV_SPROUT: case EV_TREE_ADULT: case EV_MUSHROOM:
+    case EV_BLOOM: case EV_BIRD_SEED: case EV_FROG: case EV_RAINBOW: case EV_STAR: case EV_COMPOST:
+        return WORLD_JARDIN;
+    case EV_PET_STAGE: case EV_PET_GEN: case EV_PET_WORD: case EV_PET_SPORES: case EV_PET_COMPOST:
+        return WORLD_COBERTIZO;
+    case EV_VISITOR:
+        return WORLD_SALA;
+    default:
+        return -1;
+    }
+}
+
+/* Lo "raro" que enciende el LED si pasa mientras duermes (spec §3.2). */
+int state_event_is_rare(EventKind kind)
+{
+    return kind == EV_RAINBOW || kind == EV_STAR || kind == EV_FROG || kind == EV_BLOOM ||
+           kind == EV_PET_GEN || kind == EV_PATIENCE;
+}
+
+uint64_t state_fresh(const GameState *gs)
+{
+    return gs->sala.fresh_a | gs->sala.fresh_b;
+}
+
+void state_fresh_clear(GameState *gs, EventKind kind)
+{
+    gs->sala.fresh_a &= ~(1ull << kind);
+    gs->sala.fresh_b &= ~(1ull << kind);
 }
 
 void state_log(GameState *gs, EventKind kind, uint8_t a)
@@ -53,6 +97,15 @@ void state_log(GameState *gs, EventKind kind, uint8_t a)
     if (gs->diary_count < LLV_DIARY_SIZE)
         gs->diary_count++;
     gs->diary_total++;
+
+    if (kind > EV_NONE && kind < EV_KIND_COUNT) {
+        gs->sala.fresh_a |= 1ull << kind;
+        int w = state_event_world(kind);
+        if (w >= 0)
+            gs->news |= (uint8_t)(1u << w);
+        if ((gs->flags & SF_ASLEEP) && state_event_is_rare(kind) && gs->rare_unseen < 255)
+            gs->rare_unseen++;
+    }
 }
 
 int state_bag_add(GameState *gs, ItemKind item)
@@ -129,6 +182,10 @@ int state_event_text(char *buf, size_t n, const DiaryEntry *d)
     case EV_PET_WORD: txt = "Dice algo…"; break;
     case EV_PET_SPORES: txt = "Esporas"; break;
     case EV_PET_COMPOST: txt = "Come manzana"; break;
+    case EV_VISITOR: snprintf(buf, n, "Visita: %s", speaker_short(d->a)); return 1;
+    case EV_HABIT: snprintf(buf, n, "Cuidado: %s", habit_label((int)d->a)); return 1;
+    case EV_WALK: txt = "Paseo largo"; break;
+    case EV_PATIENCE: txt = "Algo raro…"; break;
     case EV_NONE:
     case EV_KIND_COUNT:
     default: return 0;
@@ -145,7 +202,7 @@ const DiaryEntry *state_diary_get(const GameState *gs, int i)
     return &gs->diary[idx];
 }
 
-static ItemKind random_item(Rng *r)
+ItemKind state_random_item(Rng *r)
 {
     uint32_t total = 0;
     for (int k = 0; k < ITEM_COUNT; k++)
@@ -167,13 +224,21 @@ void state_tick(GameState *gs)
     if (day != gs->day_key) {
         gs->day_key = day;
         memset(gs->actions_used, 0, sizeof(gs->actions_used));
+        /* Un día sin mirarlo enfría un poco el cariño (solo el tono, nunca un castigo). */
+        if (gs->looks_today == 0)
+            for (int i = 0; i < SPK_COUNT; i++)
+                gs->sala.affinity[i] = (uint8_t)(gs->sala.affinity[i] > LLV_AFF_DECAY ?
+                                                 gs->sala.affinity[i] - LLV_AFF_DECAY : 0);
         gs->looks_today = 0;
+        gs->sala.fresh_b = gs->sala.fresh_a; /* los sucesos viven hoy y mañana; luego se olvidan */
+        gs->sala.fresh_a = 0;
+        habits_new_day(gs);
         state_log(gs, EV_NEW_DAY, 0);
     }
 
     if (--gs->refill_left == 0) {
         gs->refill_left = LLV_BAG_REFILL_TICKS;
-        ItemKind item = random_item(&gs->rng);
+        ItemKind item = state_random_item(&gs->rng);
         if (gs->bag_count < LLV_BAG_SIZE) {
             gs->bag[gs->bag_count++] = (uint8_t)item;
             state_log(gs, EV_BAG_REFILL, (uint8_t)item);
@@ -265,6 +330,23 @@ static uint64_t r_bytes(Reader *r, int n)
 #define BYTE_FIELD(X, p) X(*(p), 1)
 #define ENT_FIELDS(X, e) X((e)->sp, 1) X((e)->st, 1) X((e)->cell, 1) X((e)->left, 2)
 #define DIARY_FIELDS(X, e) X((e)->tick, 8) X((e)->kind, 1) X((e)->a, 1)
+#define U16_FIELD(X, p) X(*(p), 2)
+#define U32_FIELD(X, p) X(*(p), 4)
+#define SALA_FIELDS(X, s)                                                              \
+    X((s)->visitor, 1) X((s)->visitor_left, 1) X((s)->stage, 1) X((s)->who, 1)         \
+    X((s)->phrase, 2) EACH((s)->fill, 3, U16_FIELD, X)                                 \
+    X((s)->scene, 1) X((s)->scene_line, 1) X((s)->q, 1)                                \
+    X((s)->fresh_a, 8) X((s)->fresh_b, 8)                                              \
+    EACH((s)->recent, LLV_RECENT, U32_FIELD, X) X((s)->recent_head, 1)                 \
+    BYTES((s)->affinity, SPK_COUNT, X) BYTES((s)->memo, LLV_Q_MAX, X)                  \
+    EACH((s)->memo_day, LLV_Q_MAX, U16_FIELD, X)
+#define DIR_FIELDS(X, d)                                                               \
+    X((d)->last, 1) X((d)->cur, 1) X((d)->arg, 1) X((d)->armed, 1)                     \
+    X((d)->last_surprise_day, 2) X((d)->rolls, 2) X((d)->surprises, 2)
+#define HAB_FIELDS(X, h)                                                               \
+    X((h)->enabled, 1) X((h)->done_today, 1) X((h)->asked_today, 1) X((h)->asked_count, 1) \
+    X((h)->night_look, 1) X((h)->night_look_prev, 1) X((h)->sleep_streak, 1)           \
+    X((h)->walk_rewarded, 1) X((h)->steps_last, 4) X((h)->steps_today, 2)
 #define PET_FIELDS(X, p)                                   \
     X((p)->kind, 1) X((p)->gen, 1) X((p)->age, 2) X((p)->happy, 1) X((p)->thought, 1) \
     X((p)->word_left, 2) X((p)->task_left, 2) X((p)->stage_seen, 1)
@@ -295,7 +377,17 @@ static uint64_t r_bytes(Reader *r, int n)
     EACH((s)->diary, LLV_DIARY_SIZE, DIARY_FIELDS, X)      \
     X((s)->diary_head, 1)                                  \
     X((s)->diary_count, 1)                                 \
-    X((s)->diary_total, 4)
+    X((s)->diary_total, 4)                                 \
+    X((s)->flags, 1)                                       \
+    X((s)->news, 1)                                        \
+    X((s)->rare_unseen, 1)                                 \
+    X((s)->unseen_ticks, 1)                                \
+    X((s)->gap_min, 2)                                     \
+    X((s)->last_look_day, 2)                               \
+    X((s)->streak, 1)                                      \
+    SALA_FIELDS(X, &(s)->sala)                             \
+    DIR_FIELDS(X, &(s)->dir)                               \
+    HAB_FIELDS(X, &(s)->hab)
 
 size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
 {
@@ -325,6 +417,18 @@ static int state_valid(const GameState *t)
         t->pet.kind >= PET_COUNT || t->pet.age >= LLV_PET_CYCLE_TICKS ||
         (t->pet.kind != PET_NONE && t->pet.gen == 0))
         return 0;
+    const Sala *sa = &t->sala;
+    if (sa->visitor >= SPK_COUNT || sa->who >= SPK_COUNT || sa->stage > DLG_ASK ||
+        sa->q > Q_COUNT || sa->recent_head >= LLV_RECENT || sa->scene_line > 6 ||
+        (sa->stage != DLG_IDLE && sa->phrase > phrase_count()) || t->dir.last >= DK_COUNT ||
+        t->dir.cur >= DS_COUNT || t->dir.arg >= 255 || t->hab.enabled >= (1u << HAB_COUNT) ||
+        t->hab.done_today >= (1u << HAB_COUNT) || t->hab.asked_today >= (1u << HAB_COUNT) ||
+        t->hab.asked_count > LLV_HABIT_MAX_PER_DAY || t->news >= (1u << LLV_WORLD_COUNT) ||
+        (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0)
+        return 0;
+    for (int i = 0; i < LLV_Q_MAX; i++)
+        if ((sa->memo[i] & 3) == 3 || sa->memo[i] > 7 || (i >= Q_COUNT && (sa->memo[i] || sa->memo_day[i])))
+            return 0;
     for (int i = 0; i < LLV_BAG_SIZE; i++)
         if (t->bag[i] >= ITEM_COUNT || (i < t->bag_count) != (t->bag[i] != ITEM_NONE))
             return 0;

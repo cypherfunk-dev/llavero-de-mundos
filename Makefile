@@ -4,13 +4,27 @@ CFLAGS  ?= -O2
 CFLAGS  += -std=c11 -Wall -Wextra -Wpedantic
 B       := build/make
 
-CORE := $(wildcard src/core/*.c) $(wildcard src/core/worlds/*.c)
+CORE := $(sort $(wildcard src/core/*.c) $(wildcard src/core/worlds/*.c) src/core/phrases_data.c)
 UTIL := src/util/imgout.c
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
 SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
 SHOTS ?= capturas
+PYTHON ?= python3
 
-.PHONY: all test sim headless shots shots-reloj shots-jardin clean
+# El banco de frases (spec §5): los .txt de data/frases se convierten en un array const que se
+# compila en el firmware. Se versiona ya generado; si no hay python3, se usa el que está.
+PHRASE_INPUTS := $(wildcard data/frases/*.txt) src/core/phrases_vocab.h tools/phrases2bin.py
+src/core/phrases_data.c: $(PHRASE_INPUTS)
+	@if command -v $(PYTHON) >/dev/null 2>&1; then $(PYTHON) tools/phrases2bin.py; \
+	 else echo "aviso: no hay $(PYTHON); se usa phrases_data.c tal como está"; touch $@; fi
+
+phrases:
+	$(PYTHON) tools/phrases2bin.py
+check-phrases:
+	$(PYTHON) tools/phrases2bin.py --selftest
+	$(PYTHON) tools/phrases2bin.py --check
+
+.PHONY: all test sim headless shots shots-reloj shots-jardin shots-sala phrases check-phrases clean
 all: test headless sim
 
 $(B):
@@ -27,12 +41,16 @@ $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c 
 
 test: $(B)/llv_tests
 	$(B)/llv_tests
+	@if command -v $(PYTHON) >/dev/null 2>&1; then $(MAKE) --no-print-directory check-phrases; fi
 
 headless: $(B)/llv_headless
 sim: $(B)/llv_sim
 
-# Capturas del Reloj y del Jardín/Cobertizo (la semana simulada de la fase 2).
-shots: shots-reloj shots-jardin
+# Capturas del Reloj, del Jardín/Cobertizo (fase 2) y de la Sala con su semana simulada (fase 3).
+shots: shots-reloj shots-jardin shots-sala
+
+shots-sala: $(B)/llv_headless
+	tools/shots_sala.sh $(B)/llv_headless $(SHOTS)
 
 shots-jardin: $(B)/llv_headless
 	tools/shots_jardin.sh $(B)/llv_headless $(SHOTS)

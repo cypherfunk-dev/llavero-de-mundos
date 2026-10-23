@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "phrases_vocab.h"
 #include "rng.h"
 
 typedef enum {
@@ -55,8 +56,22 @@ typedef enum {
     EV_PET_WORD,
     EV_PET_SPORES,
     EV_PET_COMPOST,
+    /* Fase 3: la Sala, los hábitos y la paciencia */
+    EV_VISITOR,        /* a = SPK_* del visitante que llega */
+    EV_HABIT,          /* a = HAB_* cumplido */
+    EV_WALK,           /* un paseo largo (podómetro) */
+    EV_PATIENCE,       /* el bono de paciencia trajo algo raro */
     EV_KIND_COUNT
 } EventKind;
+
+/* Posición de cada mundo en el ciclo de B (spec §2). */
+enum { WORLD_RELOJ, WORLD_JARDIN, WORLD_SALA, WORLD_MUSICA, WORLD_PESCA, WORLD_COBERTIZO };
+
+/* Banderas de GameState.flags. */
+enum {
+    SF_ASLEEP = 1,     /* el llavero duerme: el bono de paciencia solo corre así */
+    SF_GRANDMA = 2,    /* modo apto para la abuela: solo humor blanco (spec §5.3) */
+};
 
 /* Huecos de la colección del Cobertizo (bitset de 16). Los peces llegan en la fase 5. */
 typedef enum {
@@ -104,6 +119,59 @@ typedef struct {
     uint8_t a;
 } DiaryEntry;
 
+/* La Sala (spec §4.3, §5). Lo que se dice y lo que se recuerda vive aquí, no en variables
+ * estáticas: así el guardado y el determinismo lo cubren todo. */
+typedef enum { DLG_IDLE, DLG_SAY, DLG_ASK } DlgStage;
+
+typedef struct {
+    uint8_t visitor;           /* SPK_* presente (0 = nadie) */
+    uint8_t visitor_left;      /* ticks hasta que se vaya */
+    uint8_t stage;             /* DlgStage */
+    uint8_t who;               /* SPK_* de quien habla */
+    uint16_t phrase;           /* índice de la frase en el banco + 1 (0 = ninguna) */
+    uint16_t fill[3];          /* parámetros de los huecos ({evento}, {hora}...) */
+    uint8_t scene;             /* escena en curso (0 = ninguna) */
+    uint8_t scene_line;        /* línea de la escena que se muestra */
+    uint8_t q;                 /* pregunta pendiente + 1 (0 = ninguna) */
+    uint64_t fresh_a, fresh_b; /* sucesos del diario sin comentar: de hoy y de ayer (bit = EventKind) */
+    uint32_t recent[LLV_RECENT]; /* hashes de las últimas frases (antirrepetición) */
+    uint8_t recent_head;
+    uint8_t affinity[SPK_COUNT]; /* 0..255; solo cambia el tono, nunca castiga */
+    uint8_t memo[LLV_Q_MAX];   /* respuestas: bits 0-1 (0 nunca, 1 sí, 2 no), bit 2 retomada */
+    uint16_t memo_day[LLV_Q_MAX]; /* día en que se preguntó por última vez */
+} Sala;
+
+/* El Director de Sorpresas (spec §7). */
+typedef enum { DK_NORMAL, DK_COMMENT, DK_SURPRISE, DK_RARE, DK_COUNT } DirRoll;
+typedef enum {
+    DS_NONE, DS_GLITCH, DS_ARRANQUE, DS_AUSENCIA, DS_INVASION, DS_CUARTA_PARED, DS_CALENDARIO,
+    DS_REBELDIA, DS_COLAPSO, DS_GATO, DS_MONEDA, DS_COUNT
+} SurpriseKind;
+
+typedef struct {
+    uint8_t last;              /* DirRoll de la última tirada (las miradas seguidas no tiran) */
+    uint8_t cur;               /* SurpriseKind activa en esta mirada */
+    uint8_t arg;               /* mundo, visitante o personaje de la sorpresa */
+    uint8_t armed;             /* rebeldía armada: el próximo B no cambia de mundo */
+    uint16_t last_surprise_day;/* día de la última sorpresa (seguro de pena) */
+    uint16_t rolls;            /* tiradas hechas (para estadísticas) */
+    uint16_t surprises;        /* sorpresas y rarezas salidas */
+} Director;
+
+/* Hábitos (spec §3.3). */
+typedef struct {
+    uint8_t enabled;           /* máscara de HAB_* activos */
+    uint8_t done_today;        /* máscara de hábitos cumplidos hoy */
+    uint8_t asked_today;       /* máscara de hábitos preguntados hoy */
+    uint8_t asked_count;       /* preguntas de hábitos hoy (tope LLV_HABIT_MAX_PER_DAY) */
+    uint8_t night_look;        /* lo miraste de madrugada (esta noche) */
+    uint8_t night_look_prev;   /* ...y la noche anterior, para la pregunta de la mañana */
+    uint8_t sleep_streak;      /* noches buenas seguidas */
+    uint8_t walk_rewarded;     /* ya hubo objeto extra por caminar hoy */
+    uint32_t steps_last;       /* última lectura del podómetro */
+    uint16_t steps_today;
+} Habits;
+
 typedef struct {
     uint64_t seed;
     Rng rng;
@@ -137,6 +205,18 @@ typedef struct {
     uint8_t diary_head;      /* próxima posición a escribir */
     uint8_t diary_count;
     uint32_t diary_total;    /* eventos anotados en toda la vida (no se pisa) */
+
+    /* Fase 3 */
+    uint8_t flags;           /* SF_* */
+    uint8_t news;            /* bit por mundo con novedades (el ❗ del HUD) */
+    uint8_t rare_unseen;     /* sucesos raros mientras no mirabas: enciende el LED */
+    uint8_t unseen_ticks;    /* ticks dormido, hasta el tope del bono de paciencia */
+    uint16_t gap_min;        /* minutos desde la mirada anterior, al despertar (saturado) */
+    uint16_t last_look_day;  /* día de la última mirada (para la racha) */
+    uint8_t streak;          /* días seguidos mirando */
+    Sala sala;
+    Director dir;
+    Habits hab;
 } GameState;
 
 void state_init(GameState *gs, uint64_t seed, int64_t now);
@@ -155,10 +235,20 @@ const char *state_coll_name(CollSlot slot);
 /* i = 0 es el evento más reciente. NULL si no existe. */
 const DiaryEntry *state_diary_get(const GameState *gs, int i);
 
+/* Quita de los sucesos "frescos" el bit de este tipo (ya se comentó). */
+void state_fresh_clear(GameState *gs, EventKind kind);
+/* Sucesos con novedades sin comentar (hoy o ayer). */
+uint64_t state_fresh(const GameState *gs);
+/* Mundo al que pertenece un suceso del diario (-1: a ninguno) y si cuenta como "raro". */
+int state_event_world(EventKind kind);
+int state_event_is_rare(EventKind kind);
+
 /* Saca un objeto de la bolsa (el preparado si lo hay; si no, uno al azar). */
 ItemKind state_bag_take(GameState *gs);
 
 const char *state_item_name(ItemKind k);
+/* Un objeto al azar con los pesos de la recarga de la bolsa (spec §3.1). */
+ItemKind state_random_item(Rng *r);
 
 /* Guardado portable: little-endian, con cabecera y CRC32. El estado completo debe
  * quedarse por debajo de 4 KB (spec §10); este tope se puede ajustar al compilar. */

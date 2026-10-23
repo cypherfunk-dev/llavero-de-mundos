@@ -38,6 +38,30 @@
 #define LLV_PET_CYCLE_DAYS 100                 /* ciclo de vida 🧪 */
 #define LLV_PET_CYCLE_TICKS (LLV_PET_CYCLE_DAYS * LLV_TICKS_PER_DAY)
 
+/* La Sala, el Director y los hábitos (spec §3.3, §5, §7). Todo 🧪. */
+#define LLV_SALA_ACTIONS 2                     /* conversaciones nuevas al día */
+#define LLV_RECENT 30                          /* frases recientes que no se repiten (spec §5.2) */
+#define LLV_DIR_NORMAL_PM 800                  /* tirada del Director, por mil: normal... */
+#define LLV_DIR_COMMENT_PM 150                 /* ...comentario del universo... */
+#define LLV_DIR_SURPRISE_PM 40                 /* ...sorpresa (el resto, 10, es algo muy raro) */
+#define LLV_DIR_COOLDOWN_S 600                 /* menos de 10 min desde la última mirada: sin tirada */
+#define LLV_DIR_PENA_DAYS 2                    /* seguro de pena: tras un día entero sin sorpresa, toca una */
+#define LLV_PATIENCE_CAP_TICKS (12 * LLV_TICKS_PER_HOUR)  /* el bono de paciencia deja de crecer a las 12 h */
+#define LLV_PATIENCE_MAX_PPM 12000             /* prob. por tick (ppm) de un suceso raro extra al llegar al tope de 12 h: crece lineal con la espera */
+#define LLV_VISIT_PERMILLE 6                   /* prob. por tick de que llegue un visitante a la Sala */
+#define LLV_VISIT_STAY_TICKS (3 * LLV_TICKS_PER_HOUR)
+#define LLV_HABIT_MAX_PER_DAY 2                /* preguntas de hábitos al día */
+#define LLV_HABIT_RAIN_TICKS (2 * LLV_TICKS_PER_HOUR)  /* la lluvia de beber agua */
+#define LLV_WALK_STEPS 6000                    /* un paseo largo (podómetro) */
+#define LLV_SLEEP_STREAK_GOOD 3                /* noches seguidas para el amanecer especial */
+#define LLV_AFF_START 100                      /* afinidad inicial (0..255) */
+#define LLV_AFF_DECAY 6                        /* lo que baja por cada día sin mirar */
+#define LLV_AFF_HIGH 150                       /* a partir de aquí son cariñosos */
+#define LLV_AFF_LOW 60                         /* por debajo, pasivo-agresivos (con ternura) */
+#define LLV_LIE_PCT 10                         /* % de "detecto una mentira" tras un sí a un hábito */
+#define LLV_CODE_GAP_MS 1500                   /* máximo entre dos toques del código secreto */
+#define LLV_GLITCH_MS 9000                     /* el cartucho sucio se arregla solo a los 9 s */
+
 /* Límites fijos de memoria (spec §10). */
 #define LLV_DIARY_SIZE 64
 #define LLV_WORLD_COUNT 6

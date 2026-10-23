@@ -22,6 +22,8 @@ typedef enum {
     C_LED_OFF,
     /* Fase 2 (siempre al final: los índices anteriores no cambian). */
     C_GRASS_A, C_GRASS_A_D, C_APPLE_ROT, C_WOOD_L, C_BIRD, C_BIRD_L, C_STONE, C_STONE_L,
+    /* Fase 3: la Sala (siempre al final). */
+    C_SKIN, C_SKIN_D, C_HAIR_GREY, C_METAL, C_METAL_D, C_CREAM, C_LAMP, C_PUMPKIN, C_TEA, C_WALL, C_WALL_D,
     C_COUNT
 } Color;
 
@@ -62,6 +64,10 @@ int gfx_text(Framebuffer *fb, int x, int y, const char *utf8, Color c);
 int gfx_text_width(const char *utf8);
 /* Ajusta a 'w' px por palabras. Devuelve el número de líneas dibujadas (o que se dibujarían si fb es NULL). */
 int gfx_text_wrap(Framebuffer *fb, int x, int y, int w, const char *utf8, Color c);
+/* Igual, pero dibuja solo los primeros max_chars caracteres (-1: todos) y devuelve en
+ * total_chars cuántos caben en total: es el efecto máquina de escribir de la Sala. */
+int gfx_text_wrap_n(Framebuffer *fb, int x, int y, int w, const char *utf8, Color c, int max_chars,
+                    int *total_chars);
 void gfx_text_center(Framebuffer *fb, int y, const char *utf8, Color c);
 
 /* Dígitos grandes 3x5 escalables ('0'-'9' y ':'). */

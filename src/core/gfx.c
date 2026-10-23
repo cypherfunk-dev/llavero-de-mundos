@@ -30,6 +30,9 @@ const uint32_t gfx_palette[C_COUNT] = {
     [C_GRASS_A] = 0x98A840, [C_GRASS_A_D] = 0x788830, [C_APPLE_ROT] = 0x6C4830,
     [C_WOOD_L] = 0xD8A060, [C_BIRD] = 0x4868D0, [C_BIRD_L] = 0x98B8F0,
     [C_STONE] = 0x8890A0, [C_STONE_L] = 0xB8C0CC,
+    [C_SKIN] = 0xF0C8A0, [C_SKIN_D] = 0xD09C78, [C_HAIR_GREY] = 0xDCDCE8, [C_METAL] = 0xA8B4C8,
+    [C_METAL_D] = 0x6C7890, [C_CREAM] = 0xF0E4C8, [C_LAMP] = 0xFFE8A0, [C_PUMPKIN] = 0xF07818,
+    [C_TEA] = 0xB86838, [C_WALL] = 0xC89058, [C_WALL_D] = 0xA87040,
 };
 
 void gfx_clear(Framebuffer *fb, Color c)
@@ -168,20 +171,34 @@ void gfx_text_center(Framebuffer *fb, int y, const char *s, Color c)
     gfx_text(fb, (LLV_W - gfx_text_width(s)) / 2, y, s, c);
 }
 
-int gfx_text_wrap(Framebuffer *fb, int x, int y, int w, const char *s, Color c)
+/* Como gfx_text pero solo los primeros 'n' caracteres (para el efecto máquina de escribir). */
+static void text_n(Framebuffer *fb, int x, int y, const char *s, Color c, int n)
+{
+    while (*s && n-- > 0) {
+        uint32_t cp = font_utf8_next(&s);
+        glyph(fb, x, y, font_glyph(cp), c);
+        x += GFX_CHAR_W;
+    }
+}
+
+int gfx_text_wrap_n(Framebuffer *fb, int x, int y, int w, const char *s, Color c, int max_chars,
+                    int *total_chars)
 {
     int maxc = (w + 1) / GFX_CHAR_W;
     if (maxc < 1)
         maxc = 1;
     char line[160];
     size_t llen = 0;
-    int lchars = 0, lines = 0;
+    int lchars = 0, lines = 0, laid = 0, budget = max_chars;
 
 #define FLUSH()                                                        \
     do {                                                               \
         line[llen] = '\0';                                             \
-        if (fb)                                                        \
-            gfx_text(fb, x, y + lines * GFX_LINE_H, line, c);          \
+        if (fb && budget != 0)                                         \
+            text_n(fb, x, y + lines * GFX_LINE_H, line, c, budget < 0 ? lchars : budget); \
+        if (budget > 0)                                                \
+            budget = budget > lchars ? budget - lchars : 0;            \
+        laid += lchars;                                                \
         lines++;                                                       \
         llen = 0;                                                      \
         lchars = 0;                                                    \
@@ -220,7 +237,14 @@ int gfx_text_wrap(Framebuffer *fb, int x, int y, int w, const char *s, Color c)
     if (lchars)
         FLUSH();
 #undef FLUSH
+    if (total_chars)
+        *total_chars = laid;
     return lines;
+}
+
+int gfx_text_wrap(Framebuffer *fb, int x, int y, int w, const char *s, Color c)
+{
+    return gfx_text_wrap_n(fb, x, y, w, s, c, -1, NULL);
 }
 
 /* ---------- dígitos grandes 3x5 ---------- */
