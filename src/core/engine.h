@@ -63,6 +63,9 @@ typedef struct {
 
     /* Fase 4: el sintetizador. Efímero: lo que se guarda es gs.mus (semilla, mutaciones, ánimo). */
     Music music;
+
+    /* Fase 5: aviso pendiente para cuando despierte (p. ej. la pesca que se cortó al dormirse). */
+    char wake_msg[96];
 } Engine;
 
 /* Universo nuevo. */

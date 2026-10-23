@@ -33,6 +33,8 @@ const uint32_t gfx_palette[C_COUNT] = {
     [C_SKIN] = 0xF0C8A0, [C_SKIN_D] = 0xD09C78, [C_HAIR_GREY] = 0xDCDCE8, [C_METAL] = 0xA8B4C8,
     [C_METAL_D] = 0x6C7890, [C_CREAM] = 0xF0E4C8, [C_LAMP] = 0xFFE8A0, [C_PUMPKIN] = 0xF07818,
     [C_TEA] = 0xB86838, [C_WALL] = 0xC89058, [C_WALL_D] = 0xA87040,
+    [C_WATER_D] = 0x1E6A88, [C_WATER] = 0x2C90A8, [C_WATER_L] = 0x58C0C8, [C_WATER_HI] = 0xB0F0E8,
+    [C_REED] = 0x6C9038, [C_REED_L] = 0xA8C860,
 };
 
 void gfx_clear(Framebuffer *fb, Color c)

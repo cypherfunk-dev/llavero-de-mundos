@@ -24,6 +24,8 @@ typedef enum {
     C_GRASS_A, C_GRASS_A_D, C_APPLE_ROT, C_WOOD_L, C_BIRD, C_BIRD_L, C_STONE, C_STONE_L,
     /* Fase 3: la Sala (siempre al final). */
     C_SKIN, C_SKIN_D, C_HAIR_GREY, C_METAL, C_METAL_D, C_CREAM, C_LAMP, C_PUMPKIN, C_TEA, C_WALL, C_WALL_D,
+    /* Fase 5: la Pesca, azules y turquesas (siempre al final). */
+    C_WATER_D, C_WATER, C_WATER_L, C_WATER_HI, C_REED, C_REED_L,
     C_COUNT
 } Color;
 

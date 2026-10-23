@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+#include "fish.h"
 #include "garden.h"
 #include "habits.h"
 #include "music.h"
@@ -11,7 +12,7 @@
 #include "timeutil.h"
 
 #define SAVE_MAGIC 0x31564C4Cu /* "LLV1" */
-#define SAVE_VERSION 4         /* v1-v3 no tenían la música (v1/v2 tampoco la Sala): se rechazan */
+#define SAVE_VERSION 5         /* v1-v4 no tenían la Pesca (v1-v3 tampoco la música): se rechazan */
 
 /* Peso de cada objeto al recargar la bolsa (spec §3.1). */
 static const uint8_t ITEM_WEIGHT[ITEM_COUNT] = {
@@ -109,6 +110,8 @@ void state_log(GameState *gs, EventKind kind, uint8_t a)
         int w = state_event_world(kind);
         if (w >= 0)
             gs->news |= (uint8_t)(1u << w);
+        if (kind == EV_BAG_REFILL && a == ITEM_LOMBRIZ) /* lombriz recargada: hay cebo para pescar */
+            gs->news |= (uint8_t)(1u << WORLD_PESCA);
         if ((gs->flags & SF_ASLEEP) && state_event_is_rare(kind) && gs->rare_unseen < 255)
             gs->rare_unseen++;
     }
@@ -127,12 +130,12 @@ static const char *const COLL_NAME[COLL_COUNT] = {
     [COLL_FLOR_RARA] = "Flor rara", [COLL_ABEJA] = "Abeja", [COLL_PAJARO] = "Pájaro",
     [COLL_LOMBRIZ] = "Lombriz", [COLL_RANA] = "Rana", [COLL_ESTRELLA] = "Estrella fugaz",
     [COLL_ARCOIRIS] = "Arcoíris",
-    [COLL_PEZ0] = "Pez", [COLL_PEZ1] = "Pez", [COLL_PEZ2] = "Pez", [COLL_PEZ3] = "Pez",
-    [COLL_PEZ4] = "Pez", [COLL_PEZ5] = "Pez",
 };
 
 const char *state_coll_name(CollSlot slot)
 {
+    if (slot >= COLL_PEZ0 && slot < COLL_COUNT)
+        return fish_name(slot - COLL_PEZ0); /* los peces tienen su nombre en la tabla de fish_data.c */
     return slot < COLL_COUNT ? COLL_NAME[slot] : "";
 }
 
@@ -178,7 +181,12 @@ int state_event_text(char *buf, size_t n, const DiaryEntry *d)
     case EV_RAINBOW: txt = "Arcoíris"; break;
     case EV_STAR: txt = "Estrella fugaz"; break;
     case EV_COMPOST: txt = "Abono"; break;
-    case EV_DISCOVER: snprintf(buf, n, "Nuevo: %s", state_coll_name((CollSlot)d->a)); return 1;
+    case EV_DISCOVER:
+        if (d->a >= COLL_PEZ0 && d->a < COLL_COUNT) /* el nombre completo del pez no cabe en el diario */
+            snprintf(buf, n, "Nuevo: %s", FISH_TABLE[d->a - COLL_PEZ0].tag);
+        else
+            snprintf(buf, n, "Nuevo: %s", state_coll_name((CollSlot)d->a));
+        return 1;
     case EV_PET_CHOSEN:
         snprintf(buf, n, "Llega %s", d->a < PET_COUNT ? PET_SHORT[d->a] : "");
         return 1;
@@ -192,6 +200,17 @@ int state_event_text(char *buf, size_t n, const DiaryEntry *d)
     case EV_HABIT: snprintf(buf, n, "Cuidado: %s", habit_label((int)d->a)); return 1;
     case EV_WALK: txt = "Paseo largo"; break;
     case EV_PATIENCE: txt = "Algo raro…"; break;
+    case EV_CAST: txt = "Lanzas la caña"; break;
+    case EV_FISH:
+    case EV_FISH_LEGEND:
+        snprintf(buf, n, "Pesca %s", d->a < FISH_TOTAL ? FISH_TABLE[d->a].tag : "?");
+        return 1;
+    case EV_FISH_JUNK:
+        snprintf(buf, n, "Pesca %s", d->a < FISH_JUNK ? FISH_TABLE[FISH_SPECIES + d->a].tag : "?");
+        return 1;
+    case EV_FISH_LOST:
+        snprintf(buf, n, "Huyó %s", d->a < FISH_TOTAL ? FISH_TABLE[d->a].tag : "?");
+        return 1;
     case EV_NONE:
     case EV_KIND_COUNT:
     default: return 0;
@@ -240,6 +259,10 @@ void state_tick(GameState *gs)
         gs->sala.fresh_a = 0;
         habits_new_day(gs);
         state_log(gs, EV_NEW_DAY, 0);
+        /* Llega la luna llena: esta noche pica el pez legendario (novedad para la Pesca). */
+        int64_t t = gs->tick * LLV_TICK_SECONDS;
+        if (time_moon_phase(t) == 4 && time_moon_phase(t - LLV_SECONDS_PER_DAY) != 4)
+            gs->news |= (uint8_t)(1u << WORLD_PESCA);
     }
 
     if (--gs->refill_left == 0) {
@@ -358,6 +381,9 @@ static uint64_t r_bytes(Reader *r, int n)
     X((p)->word_left, 2) X((p)->task_left, 2) X((p)->stage_seen, 1)
 
 #define MUS_FIELDS(X, m) X((m)->seed, 2) X((m)->mut, 1) X((m)->mood, 1)
+#define FISH_FIELDS(X, f)                                                              \
+    BYTES((f)->caught, LLV_FISH_SPECIES, X) BYTES((f)->best, LLV_FISH_SPECIES, X)      \
+    X((f)->junk, 1) X((f)->fled, 1) X((f)->casts, 2)
 
 #define SAVE_FIELDS(X, s)                                  \
     X((s)->seed, 8)                                        \
@@ -396,7 +422,8 @@ static uint64_t r_bytes(Reader *r, int n)
     SALA_FIELDS(X, &(s)->sala)                             \
     DIR_FIELDS(X, &(s)->dir)                               \
     HAB_FIELDS(X, &(s)->hab)                               \
-    MUS_FIELDS(X, &(s)->mus)
+    MUS_FIELDS(X, &(s)->mus)                               \
+    FISH_FIELDS(X, &(s)->fish)
 
 size_t state_serialize(const GameState *gs, uint8_t *buf, size_t cap)
 {
@@ -435,6 +462,19 @@ static int state_valid(const GameState *t)
         t->hab.asked_count > LLV_HABIT_MAX_PER_DAY || t->news >= (1u << LLV_WORLD_COUNT) ||
         (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0 || !music_mood_valid(t->mus.mood))
         return 0;
+    /* Acciones del día: nunca más que el límite de cada mundo (0 en los que no gastan). */
+    static const uint8_t ACTION_LIMIT[LLV_WORLD_COUNT] = {
+        [WORLD_JARDIN] = LLV_GARDEN_ACTIONS, [WORLD_SALA] = LLV_SALA_ACTIONS,
+        [WORLD_PESCA] = LLV_PESCA_ACTIONS, [WORLD_COBERTIZO] = LLV_PET_ACTIONS,
+    };
+    for (int w = 0; w < LLV_WORLD_COUNT; w++)
+        if (t->actions_used[w] > ACTION_LIMIT[w])
+            return 0;
+    /* La Pesca: lo pescado y la colección van de la mano. */
+    for (int i = 0; i < LLV_FISH_SPECIES; i++)
+        if ((t->fish.caught[i] > 0) != (t->fish.best[i] > 0) ||
+            (t->fish.caught[i] > 0 && !(t->collection >> (COLL_PEZ0 + i) & 1)))
+            return 0;
     for (int i = 0; i < LLV_Q_MAX; i++)
         if ((sa->memo[i] & 3) == 3 || sa->memo[i] > 7 || (i >= Q_COUNT && (sa->memo[i] || sa->memo_day[i])))
             return 0;

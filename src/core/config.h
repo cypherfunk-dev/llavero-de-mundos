@@ -62,6 +62,12 @@
 #define LLV_CODE_GAP_MS 1500                   /* máximo entre dos toques del código secreto */
 #define LLV_GLITCH_MS 9000                     /* el cartucho sucio se arregla solo a los 9 s */
 
+/* Pesca (spec §4.5, §3). Todo 🧪. El minijuego va a paso fijo y en enteros (fish.h). */
+#define LLV_PESCA_ACTIONS 2                    /* lanzamientos al día (cada uno gasta una lombriz) */
+#define LLV_FISH_SPECIES 6                     /* peces de la colección (COLL_PEZ0 + n) */
+#define LLV_FISH_STEP_MS 20                    /* paso fijo del minijuego */
+#define LLV_FISH_TIMEOUT_STEPS (60 * 1000 / LLV_FISH_STEP_MS)  /* el pez se cansa de esperar: 60 s */
+
 /* Audio (spec §4.4, §11): la música sale como PCM mono de 16 bits a esta tasa (entre 16000 y 22050
  * Hz va bien para el PWM de la RP2350). Los pitidos de la interfaz los genera cada plataforma. */
 #define LLV_AUDIO_RATE 22050

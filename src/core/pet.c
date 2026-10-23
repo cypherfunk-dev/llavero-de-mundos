@@ -158,6 +158,14 @@ int pet_like(PetKind kind, ItemKind item)
     return kind < PET_COUNT && item < ITEM_COUNT ? LIKE[kind][item] : 0;
 }
 
+void pet_cheer(GameState *gs, int amount)
+{
+    if (gs->pet.kind == PET_NONE)
+        return;
+    int h = gs->pet.happy + amount;
+    gs->pet.happy = (uint8_t)(h > 255 ? 255 : h);
+}
+
 bool pet_choose(GameState *gs, PetKind kind)
 {
     if (gs->pet.kind != PET_NONE || kind <= PET_NONE || kind >= PET_COUNT)

@@ -26,6 +26,9 @@ const char *pet_thought(const Pet *p);       /* "" si nunca dice nada */
 /* Líneas de la ficha solemne (cada una cabe en la pantalla): devuelve cuántas escribió. */
 int pet_ficha(const Pet *p, char lines[][24], int max);
 
+/* Alegra a la mascota (humor +amount, tope 255): un pez raro, algo barato del resto del universo. */
+void pet_cheer(GameState *gs, int amount);
+
 /* Gusto de cada mascota por cada objeto: -1 raro, 0 le da igual, 1 le gusta, 2 le encanta. */
 int pet_like(PetKind kind, ItemKind item);
 

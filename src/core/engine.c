@@ -133,6 +133,10 @@ static void wake(Engine *e, int64_t now, uint32_t ms, FrameOut *out)
     e->code_n = e->code_prog = 0;
     e->code_snap_valid = false;
     e->glitch_until_ms = e->boot_until_ms = e->coin_until_ms = 0;
+    if (e->wake_msg[0]) {
+        engine_toast(e, e->wake_msg, ms, 3200);
+        e->wake_msg[0] = '\0';
+    }
     if (out) {
         tone(out, 523, 40);
         tone(out, 659, 40);
@@ -143,6 +147,7 @@ static void wake(Engine *e, int64_t now, uint32_t ms, FrameOut *out)
 void engine_init(Engine *e, uint64_t seed, int64_t now, uint32_t ms)
 {
     memset(e, 0, sizeof(*e));
+    pesca_ui_reset(); /* lo efímero de los mundos no sobrevive a un llavero nuevo */
     state_init(&e->gs, seed, now);
     input_init(&e->in);
     wake(e, now, ms, NULL);
@@ -151,6 +156,7 @@ void engine_init(Engine *e, uint64_t seed, int64_t now, uint32_t ms)
 void engine_resume(Engine *e, const GameState *loaded, int64_t now, uint32_t ms)
 {
     memset(e, 0, sizeof(*e));
+    pesca_ui_reset();
     e->gs = *loaded;
     input_init(&e->in);
     wake(e, now, ms, NULL);
@@ -158,6 +164,11 @@ void engine_resume(Engine *e, const GameState *loaded, int64_t now, uint32_t ms)
 
 void engine_sleep(Engine *e, int64_t now)
 {
+    /* Una pesca a medias se corta al dormir: la lombriz se pierde y se avisa al despertar. */
+    const World *cur = WORLDS[e->gs.current_world];
+    const char *left = cur->leave ? cur->leave(&e->gs) : NULL;
+    if (left)
+        snprintf(e->wake_msg, sizeof(e->wake_msg), "%s", left);
     e->asleep = true;
     e->gs.flags |= SF_ASLEEP;
     e->gs.last_seen = now;
@@ -303,6 +314,14 @@ static void draw_diary(const Engine *e, Framebuffer *fb)
         if (!state_event_text(what, sizeof(what), d))
             continue;
         ago(when, sizeof(when), gs->tick - d->tick);
+        /* Si el texto no cabe junto al "hace 3 h", se recorta (sin partir una letra con tilde). */
+        int room = 104 - gfx_text_width(when) - 6;
+        for (size_t len = strlen(what); len > 0 && gfx_text_width(what) > room;) {
+            len--;
+            while (len > 0 && ((unsigned char)what[len] & 0xC0) == 0x80)
+                len--;
+            what[len] = '\0';
+        }
         gfx_text(fb, 8, y, what, C_DARK);
         gfx_text(fb, 112 - gfx_text_width(when), y, when, C_GREY);
         y += GFX_LINE_H + 1;
@@ -550,6 +569,7 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
         GameState *gs = &e->gs;
         WorldCtx ctx = make_ctx(e, now, ms);
         const World *w = WORLDS[gs->current_world];
+        const uint8_t world_before = gs->current_world;
         PhraseEnv env = phrase_env(e, now, ms);
 
         if (in.shake) {
@@ -613,6 +633,7 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
 
         if (code_feed(e, g, ms)) { /* B B A A B A B A: el Gato de Schrödinger */
             if (e->code_snap_valid) {
+                pesca_ui_reset(); /* se deshace todo lo de las A del código, también un lanzamiento */
                 *gs = e->code_snap;
                 engine_advance(gs, now);
                 e->code_snap_valid = false;
@@ -653,6 +674,17 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
             break;
         case GEST_NONE:
             break;
+        }
+
+        /* Si el mundo cambió (B, una sorpresa...), el que se deja limpia lo efímero y, si había algo a
+         * medias, avisa. Si no, corre lo que el mundo hace en cada fotograma (el minijuego de la Pesca). */
+        if (gs->current_world != world_before) {
+            const char *left = w->leave ? w->leave(gs) : NULL;
+            if (left)
+                engine_toast(e, left, ms, 3000);
+        } else if (w->frame && !ms_pending(ms, e->diary_until_ms)) {
+            WorldCtx fctx = make_ctx(e, now, ms);
+            w->frame(gs, &fctx);
         }
 
         surprise_tick(e, ms, out); /* una sorpresa forzada por un gesto (el código secreto, la rebeldía) */

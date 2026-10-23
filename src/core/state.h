@@ -61,6 +61,12 @@ typedef enum {
     EV_HABIT,          /* a = HAB_* cumplido */
     EV_WALK,           /* un paseo largo (podómetro) */
     EV_PATIENCE,       /* el bono de paciencia trajo algo raro */
+    /* Fase 5: la Pesca */
+    EV_CAST,           /* lanzas la caña (gasta una lombriz) */
+    EV_FISH,           /* a = pez pescado (0..LLV_FISH_SPECIES-1) */
+    EV_FISH_LOST,      /* a = índice del pez (o basura) que se escapó */
+    EV_FISH_LEGEND,    /* a = índice del pez legendario pescado */
+    EV_FISH_JUNK,      /* a = basura simpática pescada (índice fish.h) */
     EV_KIND_COUNT
 } EventKind;
 
@@ -73,7 +79,7 @@ enum {
     SF_GRANDMA = 2,    /* modo apto para la abuela: solo humor blanco (spec §5.3) */
 };
 
-/* Huecos de la colección del Cobertizo (bitset de 16). Los peces llegan en la fase 5. */
+/* Huecos de la colección del Cobertizo (bitset de 16): 10 del Jardín y los 6 peces de la Pesca. */
 typedef enum {
     COLL_MANZANA, COLL_HONGO, COLL_FLOR, COLL_FLOR_RARA, COLL_ABEJA, COLL_PAJARO,
     COLL_LOMBRIZ, COLL_RANA, COLL_ESTRELLA, COLL_ARCOIRIS,
@@ -181,6 +187,15 @@ typedef struct {
     uint8_t mood;
 } MusicSave;
 
+/* La Pesca (fase 5, spec §4.5): lo que queda de pescar. El minijuego en curso no se guarda. */
+typedef struct {
+    uint8_t caught[LLV_FISH_SPECIES]; /* capturas por especie (se satura en 255) */
+    uint8_t best[LLV_FISH_SPECIES];   /* récord de tamaño en cm (0 = nunca pescado) */
+    uint8_t junk;                     /* basuras simpáticas pescadas */
+    uint8_t fled;                     /* peces que se escaparon */
+    uint16_t casts;                   /* lanzamientos de toda la vida */
+} Fishing;
+
 typedef struct {
     uint64_t seed;
     Rng rng;
@@ -229,6 +244,9 @@ typedef struct {
 
     /* Fase 4 */
     MusicSave mus;
+
+    /* Fase 5 */
+    Fishing fish;
 } GameState;
 
 void state_init(GameState *gs, uint64_t seed, int64_t now);

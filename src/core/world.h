@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "fish.h"
 #include "gfx.h"
 #include "music.h"
 #include "state.h"
@@ -29,6 +30,12 @@ typedef struct {
     void *user;
 } WorldCtx;
 
+static inline void world_tone(const WorldCtx *ctx, uint16_t freq, uint16_t ms)
+{
+    if (ctx->tone)
+        ctx->tone(ctx->user, freq, ms);
+}
+
 static inline void world_toast(const WorldCtx *ctx, const char *text, uint32_t duration)
 {
     if (ctx->toast)
@@ -43,6 +50,13 @@ typedef struct {
     void (*on_tap)(GameState *gs, const WorldCtx *ctx);  /* puede ser NULL */
     void (*on_hold)(GameState *gs, const WorldCtx *ctx); /* puede ser NULL */
     void (*on_shake)(GameState *gs, const WorldCtx *ctx);/* agitar con este mundo abierto; puede ser NULL */
+    /* Cada fotograma con este mundo abierto (después de los gestos): lo que corre a paso fijo con
+     * los botones pulsados, como el minijuego de la Pesca; puede ser NULL. */
+    void (*frame)(GameState *gs, const WorldCtx *ctx);
+    /* Al salir del mundo (B, una sorpresa que cambia de mundo, dormir): deja lo efímero limpio. Si
+     * había algo a medias, lo cierra sin dejar estados colgados y devuelve un aviso para el
+     * jugador (o NULL). Puede ser NULL. */
+    const char *(*leave)(GameState *gs);
 } World;
 
 /* true si 'until' aún no ha llegado; tolera que el contador de ms dé la vuelta (~49 días).
@@ -59,6 +73,14 @@ extern const World world_sala;
 extern const World world_musica;
 extern const World world_pesca;
 extern const World world_cobertizo;
+
+/* La Pesca (fase 5): el lanzamiento y el minijuego en curso son efímeros (no se guardan). */
+typedef enum { PESCA_IDLE, PESCA_CAST, PESCA_WAIT, PESCA_BITE, PESCA_FIGHT, PESCA_RESULT } PescaPhase;
+void pesca_ui_reset(void);
+PescaPhase pesca_phase(void);
+const FishGame *pesca_game(void);   /* NULL si no hay pelea en curso */
+const FishPlan *pesca_plan(void);   /* lo sorteado al lanzar; solo vale si la fase no es IDLE */
+const FishResult *pesca_result(void);
 
 /* Ayudas de interfaz del Cobertizo para tests y herramientas: el cursor es solo visual. */
 void jardin_ui_reset(void);
