@@ -55,6 +55,7 @@ Dos botones (A y B) y el acelerómetro.
 | **A + B** | Diario: "mientras no mirabas…" |
 | **Agitar** | Despierta la pantalla (en algunos mundos provoca algo) |
 | `B B A A B A B A` | Código secreto 🤫 |
+| **A A** (dos toques seguidos, solo en Música) | Abre el **Estudio** (§4.4, v1.1): mientras está abierto, B pasa de parámetro y A cambia su valor |
 
 **Al despertar**, el llavero no abre siempre el último mundo: el **Director**
 (§7) abre el mundo donde ha pasado algo y marca con ❗ los que tienen novedades.
@@ -257,6 +258,21 @@ Chiptune de tres voces al estilo NES: dos ondas cuadradas y una de ruido.
 - **A (mantener):** nueva semilla. Otra escala, otro tempo.
 - **Límite:** ninguno. Solo consume batería mientras estás en este mundo.
 - Necesita **altavoz** (ver §11).
+
+**Estudio (v1.1)** ✅ *(hecho en el simulador; el gate de oído sigue siendo el de la fase 4)*. A petición del dueño tras
+probar la alfa: "un poco más de control, no tanto como un IDE, pero que el usuario pueda ser más creativo". El modo
+rápido y aleatorio de arriba no cambia (B, A toque, A mantener); **dos toques seguidos de A** (menos de 0,3 s) abren
+una ventana modal sobre el visualizador, con la música sonando:
+
+- **B** pasa al parámetro siguiente (mantener: al anterior), **A (toque)** cambia su valor de forma cíclica y
+  **A (mantener)** cierra; se cierra solo a los 9 s sin pulsar nada y al dormir. B no cambia de mundo mientras está abierto.
+- **Parámetros:** escala (pentatónica mayor y menor, mayor, menor natural, dórica, frigia, lidia, mixolidia, blues, menor
+  armónica), tónica (12 notas), tempo (60 a 140 BPM de 8 en 8), arpegio (apagado, sube, baja, sube y baja, azar, roto),
+  progresión (las 22 de la tabla), timbre (ciclo de trabajo 12,5 / 25 / 50 %), ritmo (densidad del ruido: baja, media, alta),
+  silenciar por separado la melodía, el bajo y el ruido, y el **dado** (mantener A: semilla nueva).
+- **Candados:** cada parámetro de generación es **AUTO** (lo decide la semilla, la hora y el clima) o **FIJO** (lo elegido).
+  Mutar y semilla nueva no tocan lo fijo, solo lo AUTO: se puede fijar la escala y dejar que la melodía mute.
+- Los ajustes se guardan (8 bytes de música en total); el panel abierto no. Con todo en AUTO el audio es idéntico al de antes.
 
 ### 🎣 4.5 Pesca
 
@@ -490,7 +506,7 @@ Nada puede crecer sin límite. No hace falta "borrar eventos" a mano.
 | Bolsa, colección | Contadores, no listas | <0,1 KB |
 | Memoria de personajes | Bits (sí/no por pregunta) + afinidad | <0,1 KB |
 | Frases recientes | Buffer circular de 30 hashes | ~0,1 KB |
-| **Estado completo** | Se guarda en flash al dormir (LittleFS) | **<4 KB** |
+| **Estado completo** | Se guarda en flash al dormir (LittleFS); la música son 8 bytes (semilla, mutaciones, ánimo y los ajustes del Estudio) | **<4 KB** |
 | Framebuffer | Indexado, 4 bits por píxel (§12) | ~8 KB |
 
 - **Catch-up:** ~1000 ticks × 32 entidades como máximo → milisegundos.

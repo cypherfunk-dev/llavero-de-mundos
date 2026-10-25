@@ -776,7 +776,7 @@ typedef struct {
     uint32_t visits[LLV_WORLD_COUNT];
     uint32_t a_taps[LLV_WORLD_COUNT], a_holds[LLV_WORLD_COUNT];
     uint32_t casts, no_worm, no_actions, fish_won, fish_lost, cancel_b, cancel_sleep, legend;
-    uint32_t music_mut, music_seeds, qs_yes, qs_no, ab_taps, shakes, codes, diaries;
+    uint32_t music_mut, music_seeds, studio_visits, studio_changes, studio_dice, qs_yes, qs_no, ab_taps, shakes, codes, diaries;
     uint32_t absences[3];       /* 1 h, 1 día, 1 semana */
     uint32_t max_garden, max_diary, max_bag, max_save, frames_start;
     uint32_t bag_full_lost, discoveries;
@@ -824,6 +824,9 @@ static void alpha_check(const Sim *s, Alpha *a, const char *when)
     };
     a->checks++;
     REQUIRE(g->current_world < LLV_WORLD_COUNT, "índice de mundo inválido");
+    REQUIRE(music_studio_packed_valid(g->mus.studio), "ajustes del Estudio inválidos");
+    REQUIRE(!s->e.studio_open || (g->current_world == WORLD_MUSICA && !s->e.asleep),
+            "el Estudio está abierto fuera de la Música o con el llavero dormido");
     REQUIRE(g->bag_count <= LLV_BAG_SIZE, "bolsa por encima de su capacidad");
     for (int i = 0; i < LLV_BAG_SIZE; i++) {
         REQUIRE(g->bag[i] < ITEM_COUNT, "objeto de bolsa inválido");
@@ -1054,7 +1057,49 @@ static void alpha_cobertizo(Sim *s, Alpha *a, bool deep)
     cobertizo_ui_reset();
 }
 
-/* La música: mutar, nueva semilla y unos segundos de audio. */
+/* El Estudio: lo abre con dos toques de A, recorre unas filas, cambia valores, a veces tira el dado y lo cierra a mano o lo
+ * deja que se cierre solo. */
+static void alpha_studio(Sim *s, Alpha *a)
+{
+    idle(s, LLV_CODE_GAP_MS + 100);
+    tap(s, BTN_A);
+    tap(s, BTN_A);
+    if (!engine_studio_open(&s->e)) {
+        vio(a, "Estudio: dos toques de A no lo abrieron");
+        return;
+    }
+    a->studio_visits++;
+    int ops = 2 + (int)rng_below(&s->rng, 6);
+    for (int k = 0; k < ops && engine_studio_open(&s->e); k++) {
+        uint32_t r = rng_below(&s->rng, 10);
+        if (r < 4) {
+            tap(s, BTN_B);
+        } else if (r < 9) {
+            if (s->e.studio_row == SR_DICE) {
+                hold(s, BTN_A);
+                a->studio_dice++;
+            } else {
+                tap(s, BTN_A);
+                a->studio_changes++;
+            }
+        } else {
+            hold(s, BTN_B);
+        }
+        idle(s, 300);
+        alpha_check(s, a, "con el Estudio abierto");
+    }
+    if (rng_below(&s->rng, 2) == 0) {
+        s->e.studio_row = (uint8_t)SR_TEMPO;
+        hold(s, BTN_A); /* mantener A sobre un parámetro: cierra */
+    } else {
+        idle(s, LLV_STUDIO_TIMEOUT_MS + 1500); /* y a veces se cierra solo */
+    }
+    if (engine_studio_open(&s->e))
+        vio(a, "Estudio: no se cerró");
+    idle(s, 1500);
+}
+
+/* La música: mutar, nueva semilla, el Estudio y unos segundos de audio. */
 static void alpha_musica(Sim *s, Alpha *a)
 {
     alpha_goto(s, a, WORLD_MUSICA);
@@ -1070,6 +1115,8 @@ static void alpha_musica(Sim *s, Alpha *a)
         a->music_seeds++;
         idle(s, 2500);
     }
+    if (rng_below(&s->rng, 100) < 50)
+        alpha_studio(s, a);
     idle(s, 4000);
 }
 
@@ -1324,6 +1371,9 @@ static int alpha_run(Sim *s, int days, bool stock, const char *report_path, uint
        a.qs_no, s->said_n - (int)said_before);
     rp(&a, "Música: %u mutaciones, %u semillas nuevas, semilla final #%04X (+%u).\n", a.music_mut, a.music_seeds,
        g->mus.seed, g->mus.mut);
+    MusicStudio fin = music_studio_unpack(g->mus.studio);
+    rp(&a, "Estudio: %u visitas, %u cambios de valor, %u dados; ajustes finales 0x%07X (%s).\n", a.studio_visits,
+       a.studio_changes, a.studio_dice, (unsigned)g->mus.studio, music_studio_any_locked(&fin) ? "con candados" : "todo AUTO");
     rp(&a, "Cobertizo: mascota %s gen %u día %d etapa '%s', humor %s.\n",
        g->pet.kind ? pet_name((PetKind)g->pet.kind) : "ninguna", g->pet.gen, g->pet.kind ? pet_day(&g->pet) : 0,
        g->pet.kind ? pet_stage_name(&g->pet) : "-", g->pet.kind ? pet_mood(&g->pet) : "-");

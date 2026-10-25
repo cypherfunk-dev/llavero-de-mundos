@@ -9,7 +9,7 @@ Este repositorio contiene el motor en C11 portable (`src/core`), la capa HAL
 (`src/hal`), el simulador SDL2 (`src/platform/sdl`), una herramienta headless
 para generar capturas y simular semanas de uso (`src/platform/headless`), el
 banco de frases (`data/frases`) con su conversor (`tools/phrases2bin.py`), la música
-generativa (`src/core/music.c`, con su banco de pruebas `llv_music`), la pesca (`src/core/fish.c`,
+generativa (`src/core/music.c`, con su banco de pruebas `llv_music`) y su Estudio (`studio.c`), la pesca (`src/core/fish.c`,
 `fish_data.c`, `fish_art.c` y `worlds/pesca.c`) y los tests (`tests/`).
 
 > **Versión alfa.** Las fases 0 a 5 están hechas en cuanto a estructura: los seis mundos (Reloj, Jardín,
@@ -33,7 +33,7 @@ make test      # compila y pasa los tests
 make sim       # simulador SDL2 (necesita SDL2: pkg-config sdl2)
 make headless  # herramienta sin SDL
 make shots     # capturas del Reloj, del Jardín, de la Sala (con su semana simulada), de la Música y de la Pesca con su colección en capturas/
-make music     # 200 semillas a WAV, informe de métricas, comparación y barrido de las 65.536 semillas (capturas/musica/)
+make music     # 200 semillas a WAV, informe de métricas, comparación y barrido de las 65.536 semillas, y el informe y los WAV del Estudio (capturas/musica/)
 make alpha     # la alfa entera: tests + 14 días de uso por los 6 mundos (3 informes) + capturas de los 6 mundos y de la Pesca (capturas/alfa/, capturas/pesca/)
 make phrases   # regenera src/core/phrases_data.c a partir de data/frases/*.txt
 ```
@@ -44,10 +44,12 @@ elección de mascota y la ficha de las cuatro mascotas) y `make shots-sala`
 (`tools/shots_sala.sh`: la Sala con cada personaje, las preguntas, las fechas especiales,
 todas las sorpresas, el ❗ del HUD, los ajustes de hábitos y la semana de la fase 3 con su
 volcado de frases). `make test` también comprueba que el binario de frases está al día y pasa los
-tests de la música (`tests/test_music.c`, otro ejecutable: `llv_test_music`; `ctest` ejecuta los dos).
+tests de la música (`tests/test_music.c`, otro ejecutable: `llv_test_music`) y los del Estudio (`tests/test_studio.c`:
+`llv_test_studio`); `ctest` ejecuta todos.
 `make shots-musica` (`tools/shots_musica.sh`) son las capturas del mundo Música a distintas horas, con
 lluvia, estrella fugaz y arcoíris, con varias semillas, mutando y con semilla nueva, más 30 s de audio
-en WAV de tres momentos.
+en WAV de tres momentos y, desde el Estudio, el panel en cada fila, con candados y valores largos, con voces silenciadas, las
+escalas nuevas y el dado (`estudio_*.png`, `voces_*.png`, `escala_*.png`...) y dos WAV con ajustes (`audio_estudio_*.wav`).
 `make shots-pesca` (`tools/shots_pesca.sh`) son las capturas de la Pesca y la colección: el estanque a todas
 horas, con lluvia, viento, nieve y en las cuatro estaciones, una pesca de principio a fin (lanzar, esperar,
 picar, pelear, tarjeta ganada y perdida), los mensajes con gracia, la tarjeta de cada pez y de cada basura,
@@ -271,7 +273,8 @@ letras; las preguntas, 5).
 | Gesto | Qué hace |
 |---|---|
 | **A** (toque) | **Mutar**: cambia la melodía (motivo y variaciones) y conserva el estilo: misma escala, progresión, tempo y timbre. Aparece "+N" junto a la escala |
-| **A** (mantener) | **Semilla nueva**: otra escala, otro tempo, otra progresión, otro timbre (`Semilla #4F2A`) |
+| **A** (mantener) | **Semilla nueva**: otra escala, otro tempo, otra progresión, otro timbre (`Semilla #4F2A`); **lo que hayas fijado en el Estudio no cambia** |
+| **A A** (dos toques seguidos, < 0,3 s) | Abre el **Estudio** (v1.1), ver [más abajo](#-el-estudio-v11); la pista `A A: ESTUDIO` se ve bajo el osciloscopio |
 | **B** | Cambia de mundo, como siempre. La música se desvanece (150 ms) y calla |
 | `+` / `-` / `M` (simulador) | Volumen y silencio; se aplican a la música y a los pitidos |
 
@@ -293,8 +296,8 @@ generador que el audio, no del altavoz: se ve igual con `--mute` o sin dispositi
   no está medido en el chip**.
 - **La semilla** es de 16 bits (`#4F2A`) y se guarda con las mutaciones (1 byte) y el ánimo (1 byte): **4 bytes**
   en `GameState.mus`, nada más. De (semilla, ánimo) sale el **estilo** y de (estilo, semilla, mutaciones) la
-  **canción** de 16 compases, siempre igual. `SAVE_VERSION` es 4 (los guardados de las fases 0, 2 y 3 se
-  rechazan y se crea un universo nuevo); `SAVE_FIELDS` sigue siendo la única fuente de verdad y el estado
+  **canción** de 16 compases, siempre igual (desde el Estudio, `GameState.mus` son 8 bytes y `SAVE_VERSION` 6: ver su sección).
+  `SAVE_VERSION` era 4 en esta fase (los guardados de las fases 0, 2 y 3 se rechazaron y se creó un universo nuevo); `SAVE_FIELDS` sigue siendo la única fuente de verdad y el estado
   completo ocupa 1.154 bytes en el guardado (1.584 en memoria), muy por debajo de los 4 KB.
 - **Escala y tempo según la hora y el clima del Jardín (§4.4)**: de día, pentatónica mayor; amanecer y
   atardecer, pentatónica o dórica; de noche, menor o dórica; **con lluvia, solo las dos menores** (pentatónica
@@ -325,6 +328,123 @@ generador que el audio, no del altavoz: se ve igual con `--mute` o sin dispositi
   trozos de muestras) mientras estás en este mundo, y tiene su propio PCG32: no gasta ni un número de `gs->rng`. El
   test de 6 horas lo comprueba (el estado guardado coincide con el de un llavero que no escucha nada, salvo los
   4 bytes de la música y el mundo abierto).
+
+### 🎛 El Estudio (v1.1)
+
+*Petición del dueño tras probar la alfa: "que el generador de música aleatoria tuviese un poco más de control, no tanto como un IDE,
+pero que el usuario pueda ser más creativo, que tenga un factor de más participación: cambiar la escala, el tipo de arpegio,
+silenciar instrumentos, etc."* El modo rápido y aleatorio de arriba no cambia: el Estudio es una ventana opcional.
+
+**Cómo se abre.** En el mundo Música, **dos toques seguidos de A** (con menos de 0,3 s entre soltar el primero y soltar el segundo,
+`LLV_DOUBLE_TAP_MS`). Es barato de descubrir (A ya es "hacer algo" en este mundo, y la caja del visualizador lleva la pista discreta
+`A A: ESTUDIO` bajo el osciloscopio) y no choca con A (toque: mutar) ni con A (mantener: semilla nueva), ni con A+B (el diario).
+Abrirlo **no cambia nada del universo**: el primer toque ya había mutado la melodía como siempre y el segundo lo deshace antes de abrir el
+panel (y un test comprueba que el estado guardado es idéntico, salvo los campos de la música, con el panel abierto o no). Para
+mutar varias veces seguidas, deja pasar un instante (> 0,3 s) entre toque y toque.
+
+**Qué hace cada botón con el panel abierto** (la música sigue sonando y el visualizador se ve en miniatura abajo):
+
+| Gesto | Qué hace |
+|---|---|
+| **B** (toque) | Parámetro siguiente (cíclico). **B no cambia de mundo mientras el Estudio está abierto** (el título dice `ESTUDIO`; la pista de abajo dice `B:SIGUE  A:CAMBIA`) |
+| **B** (mantener) | Parámetro anterior (añadido: con 11 filas ahorra vueltas) |
+| **A** (toque) | Cambia el valor del parámetro seleccionado, al siguiente (cíclico; el último vuelve a `AUTO`). Un pitido corto (el mismo mecanismo de siempre: los pitidos mandan y la música baja un instante) |
+| **A** (mantener) | **Cierra** el Estudio; sobre la fila `DADO`, en cambio, **tira el dado** (semilla nueva respetando los candados) y sigue abierto |
+| A+B | Diario, como siempre |
+
+Se cierra solo tras **9 s** sin pulsar nada (`LLV_STUDIO_TIMEOUT_MS`; una barra fina bajo el título lo muestra) y al dormir o si una
+sorpresa te saca del mundo. Mientras está abierto, los gestos no cuentan para el código secreto; y si estás tecleando el código
+(`B B A A ...`), dos A seguidas siguen siendo del código y no abren nada (tras unos B seguidos, espera 1,5 s).
+
+**Parámetros** (11 filas, 6 a la vez con barra de desplazamiento; `AUTO` en gris, lo **fijo** en amarillo con un candado):
+
+| Fila | Valores | Qué cambia |
+|---|---|---|
+| `ESCALA` | AUTO, PENT. MAYOR, PENT. MENOR, MAYOR, MENOR, DÓRICA, FRIGIA, LIDIA, MIXOLIDIA, BLUES, MENOR ARM. | La escala de la melodía, y con ella los acordes (ver abajo). AUTO = por hora y clima, como siempre |
+| `TÓNICA` | AUTO, Do, Do#, Re, Re#, Mi, Fa, Fa#, Sol, Sol#, La, La#, Si | Transpone todo (melodía, bajo y acordes) |
+| `TEMPO` | AUTO, 60, 68, 76 ... 140 BPM (de 8 en 8; 11 valores) | El tempo, sin la lluvia, la mascota ni el arcoíris |
+| `ARPEGIO` | AUTO, APAGADO, SUBE, BAJA, SUBE-BAJA, AZAR, ROTO | El patrón de la voz de acompañamiento (ver abajo). AUTO = el estilo que sale de la semilla (euclidiano, octavas, arpegio o caminante) |
+| `PROG` | AUTO + las 22 progresiones de la tabla (`I-V-vi-IV`, `i-VII-VI-VII`...) | La misma en las cuatro frases (A, A', B y A''); los acordes se ajustan a la escala |
+| `TIMBRE` | AUTO, 12,5 %, 25 %, 50 % | Ciclo de trabajo de las dos cuadradas (melodía y bajo) |
+| `RITMO` | AUTO, BAJO, MEDIO, ALTO | Densidad del canal de ruido: bombo E(2,16)/E(3-4,16)/E(4-5,16), hi-hat E(4)/E(6-8)/E(10-12) y redobles |
+| `MELODÍA` `BAJO` `RUIDO` | SUENA / MUDA | Silencia o reactiva cada voz por separado |
+| `DADO` | `MANTÉN A` | Acción: semilla nueva, respetando los candados |
+
+**Candados: AUTO o FIJO.** Los siete parámetros de generación (escala, tónica, tempo, arpegio, progresión, timbre y ritmo) están en
+`AUTO` (lo decide la semilla, la hora y el clima, como siempre) o `FIJO` (el valor elegido). **Lo fijo no lo cambian ni "mutar" ni la
+"semilla nueva", solo tú**: así puedes fijar la escala y dejar que la melodía mute, o fijar el tempo y tirar el dado. Fuera del
+panel, la caja de datos lo refleja: un asterisco tras la escala o el tempo fijos (`DÓRICA*`, `124* BPM`) y un candado en la esquina si
+hay otros ajustes fijos. Silenciar una voz no es un candado (no se tiene en cuenta en esa esquina), pero se ve: su barra queda gris y tachada.
+
+**Cómo lo aplica el motor** (`music.c`, sin romper el determinismo):
+
+- **Con todo en AUTO, el audio es idéntico bit a bit al de la alfa.** La semilla hace *todas* sus tiradas en el orden de siempre y los
+  ajustes fijos se aplican **después** por encima (por eso fijar un parámetro no mueve a los demás: fijar el valor que AUTO habría elegido da
+  exactamente la misma canción). El test de regresión (`tests/test_studio.c`) lleva los hashes del PCM de 32 casos de 70 s y de 2.048
+  canciones calculados con el código de la rama anterior, antes de tocar nada.
+- **Misma semilla + mismos ajustes = mismo PCM byte a byte**, también en trozos irregulares (probado con cada parámetro fijo).
+- **Escalas nuevas** (mayor, frigia, lidia, mixolidia, blues, menor armónica): cada una con su tabla de tendencias melódicas (la sensible sube
+  a la tónica, la segunda bemol frigia baja a ella, la cuarta aumentada lidia sube a la quinta...) y su acorde dominante de cierre.
+- **Acordes diatónicos.** Si fijas la escala o la progresión, los acordes de la tabla se **ajustan a la escala**: un acorde con todas sus notas
+  en la escala (dos en las pentatónicas y el blues) se queda como está; si no, se busca el más cercano que sí (la otra tercera, o la fundamental
+  uno o dos semitonos arriba o abajo). Así `I-V-vi-IV` en frigia en Do suena Do menor, La bemol, Si bemol menor y Fa menor (`i-bVI-bvii-iv`) en vez de chocar con la melodía, y en lidia el IV (que no
+  es de la escala) pasa a iii. Con la escala
+  y la progresión en AUTO no se toca nada. Además, con la escala o la progresión fijas se evitan más los choques con el bajo (la sensible de
+  la menor armónica sobre la tónica era lo más áspero: de 3,5 % a 0,2 % de semillas con choques).
+- **Arpegios** (corcheas sobre la octava de la fundamental, R fundamental, T tercera, F quinta, O octava): `SUBE` R T F O R T F O, `BAJA`
+  O F T R O F T R, `SUBE-BAJA` R T F O F T R T, `ROTO` (bajo de Alberti) R F T F R F T F, `AZAR` primera nota la fundamental y las demás
+  al azar del acorde sin repetir la anterior (sale del mismo generador de la semilla: siempre igual con esa semilla), `APAGADO` sin arpegio:
+  la fundamental en dos blancas.
+- **Silenciar una voz** es un fundido de 16 ms de su **salida** (8 ticks de control): lo que se genera y los osciladores, envolventes y el
+  LFSR del ruido siguen su curso, así que no cambia nada de las otras voces y al reactivarla vuelve **sincronizada**. Se prueba con
+  `music_render_voices()`, que deja ver cada voz por separado: las otras voces son idénticas muestra a muestra, la silenciada es cero y las
+  rampas de fundido bajan en escalones de un octavo.
+- **Cambios en marcha:** al cambiar un ajuste, la canción se rehace al instante sin perder el compás ni cortar la nota que suena (como mutar);
+  una semilla nueva conserva los ajustes. Un valor no válido se ignora.
+
+**Estado y guardado.** `GameState.mus` crece de 4 a 8 bytes: los ajustes van empaquetados en 27 bits (escala 4, tónica 4, tempo 4,
+arpegio 3, progresión 5, timbre 2, ritmo 2 y voces 3; todo AUTO = 0). `SAVE_VERSION` pasa a **6** (los guardados de la alfa se rechazan
+con limpieza y se crea un universo nuevo), `SAVE_FIELDS` sigue siendo la única fuente de verdad, se validan los rangos al cargar y el
+estado completo ocupa 1.174 bytes guardados (1.608 en memoria) de los 4.096. El panel abierto es efímero (no se guarda). La música sigue sin
+tocar `gs->rng` ni avanzar en `World.tick` ni en el catch-up. El código nuevo añade ~3,9 KB a `music.c` con `-Os` (de 14,4 a 18,3 KB, con las tablas) y `Music`
+pasa de 2.816 a 2.840 bytes; el coste de renderizar no cambia (70 s de audio x 32 casos en 0,37 s en el portátil, antes 0,36 s).
+
+**Generar WAV e informes con ajustes fijos** (`llv_music`; 0 o sin la opción = AUTO):
+
+```sh
+build/make/llv_music --scale 6 --arp 4 --key 3 --seeds 50 --out /tmp/m     # 50 semillas en frigia, arpegio sube y baja, en Re
+build/make/llv_music --scale 9 --prog 20 --duty 1 --mute 4 --seeds 20       # blues con la progresión 20, cuadradas finas y sin ruido
+build/make/llv_music --one 0x4F2A 0x22 --scale 10                          # volcado de notas de una semilla con la menor armónica
+build/make/llv_music --matrix 100 --examples --out capturas/musica          # = lo que añade `make music`
+```
+
+Opciones: `--scale 1..10` (el orden de la lista: 1 pent. mayor, 2 pent. menor, 3 mayor, 4 menor, 5 dórica, 6 frigia, 7 lidia, 8 mixolidia,
+9 blues, 10 menor armónica), `--key 1..12`, `--tempo 1..11`, `--arp 1..6`, `--prog 1..22`, `--duty 1..3`, `--rhythm 1..3` y
+`--mute MÁSCARA` (1 melodía, 2 bajo, 4 ruido). `--matrix N` mide las 77 combinaciones de escala (AUTO + 10) x arpegio (AUTO + 6) con N semillas
+cada una (notas y 12 s de audio, los mismos umbrales) y escribe `informe_estudio.txt` (una línea por combinación con qué criterios
+incumple, resúmenes por escala, por arpegio y por criterio) y un piano roll por combinación (`estudio_ESCALA_ARPEGIO.png`);
+`--examples` renderiza 14 WAV de 20 s y su piano roll (una por escala con un arpegio distinto y cuatro más con otra tónica, tempo, timbre y ritmo).
+En el simulador headless, `studio open|close|clear|row N|set FILA VALOR` maneja el panel (`llv_headless --help`).
+
+**Calidad con los ajustes fijos (los umbrales no se tocan)** (`make music`, 100 semillas por combinación, 12 s de audio juzgado):
+
+| | Cumplen |
+|---|---|
+| **77 combinaciones de escala x arpegio** (7.700 semillas) | **7.376 (95,8 %)**; **las 77 combinaciones pasan el 90 %** (la peor: 91 %) |
+| Por escala (todos los arpegios) | AUTO 95,1 %, pent. mayor 96,1 %, pent. menor 96,3 %, mayor 95,9 %, menor 95,1 %, dórica 94,0 %, frigia 97,1 %, lidia 95,1 %, mixolidia 94,9 %, blues 98,0 %, menor armónica 96,0 % |
+| Por arpegio (todas las escalas) | AUTO 95,8 %, apagado 96,8 %, sube 96,1 %, baja 94,6 %, sube y baja 95,8 %, azar 95,6 %, roto 95,7 % |
+| 10 escalas x 22 progresiones fijas (8.800 semillas) | 8.412 (95,6 %); la peor, 82 % (pent. menor con `i-ii-IV-i` y frigia con `VI-VII-i-i`) |
+| Timbre, ritmo, tempo, tónica o voces fijos (100 semillas) | 98 % en todos; con bajo y ruido silenciados, 94 % |
+| Música de siempre (AUTO), barrido de las 65.536 semillas | 96,2 %: no ha cambiado |
+
+Incumplen sobre todo "grados conjuntos" (3,0 % de las semillas) y "salto máximo" (1,0 %), los mismos de siempre; los choques ásperos son el 0,1 %.
+**Qué sonaba peor por construcción y cómo se arregló** (primera pasada, sin tocar umbrales): la **menor armónica** (89 %: la sensible sobre la
+tónica es una séptima mayor contra el bajo y el VII bemol de las progresiones menores no existe en ella; se armonizan los acordes y se evitan más
+los choques, y la tabla de tendencias favorece los grados conjuntos: 96 %) y la **frigia** (la segunda bemol; misma receta: de 93 % a 97 %).
+Siguen siendo los más "raros" de oído: **la menor armónica con `SUBE` y la frigia con `BAJA`** son las que más hay que escuchar, y **cualquier
+progresión fijada en una escala que no es suya** (p. ej. `I-V-vi-IV` en frigia) pasa por la armonización, que da acordes legales pero a veces
+distintos de los que anuncia la fila (el nombre sigue siendo el de la tabla). Y lo de siempre: que cumpla los umbrales no dice que **guste**; el gate de
+oído de las escalas nuevas (y de los 14 WAV de ejemplo) es tuyo.
 
 ### Audio, batería y pitidos
 
@@ -621,6 +741,9 @@ build/make/llv_headless --date "2026-10-22 08:00" --seed 7 alpha 14 informe.txt 
   de paciencia (ver el gate de la fase 3).
 - [x] **Fase 4:** Música generativa: motor, mundo, HAL de audio y métricas hechos (97 % de las semillas cumple los
   umbrales, ver más arriba); **el gate de oído está pendiente de ti** (es el que cuenta: `make sim`, mundo Música).
+- [x] **Estudio de la música (v1.1)**, a petición del dueño tras probar la alfa: dos toques de A abren un panel para fijar la escala, la
+  tónica, el tempo, el arpegio, la progresión, el timbre y el ritmo (candados AUTO/FIJO) y silenciar voces, sin tocar el modo rápido
+  (ver [El Estudio](#-el-estudio-v11)). El gate de oído también cuenta para las escalas y los arpegios nuevos.
 - [x] **Fase 5:** Pesca y colección completa: especies, selección por contexto, minijuego, colección con fichas, diario, Sala
   y Director (ver el gate de la fase 5). Con ella, **los 6 mundos funcionan de principio a fin: versión alfa**.
 - [ ] Fase 6: carcasa y ajuste de números.
@@ -706,8 +829,8 @@ compostera acepta los restos...). `make alpha` ejecuta los tests y **14 días de
 
 - **Qué hace la persona simulada:** 1 a 4 sesiones al día (07:40, 12:50, 18:20, 22:40, con holgura, y un día de poco uso). En cada una
   recorre el Reloj (cambia de estilo y mira la fecha), el Jardín (acción del día y lupa), la Sala (charla, timbre, contesta
-  preguntas de sí o no y sigue las escenas), la Música (muta y pide semillas, con el audio corriendo por el mismo camino que en
-  el simulador), la Pesca (con jugador perfecto, humano torpe o que no pulsa; a veces suelta con B a mitad de pelea o esperando; a
+  preguntas de sí o no y sigue las escenas), la Música (muta, pide semillas y a veces abre el Estudio con dos toques, cambia valores, tira el dado y lo cierra a mano o lo deja
+  que se cierre solo; con el audio corriendo por el mismo camino que en el simulador), la Pesca (con jugador perfecto, humano torpe o que no pulsa; a veces suelta con B a mitad de pelea o esperando; a
   veces el llavero se apaga con la caña en el agua), el Cobertizo (prepara la lombriz, cuida y respira con la mascota, mira las fichas de
   los peces con el cursor y mantiene A para cambiar de página), una vuelta entera con B (y B mantenido), gestos A+B, agitar y el código
   secreto. Hay un **día entero sin mirar y una semana fuera** (21 días naturales en total) y una **ausencia de 1 hora**.
@@ -730,7 +853,8 @@ compostera acepta los restos...). `make alpha` ejecuta los tests y **14 días de
 
 **Qué está hecho:** motor, HAL (con audio), simulador SDL2 y herramienta headless; los 6 mundos; las 4 mascotas; el jardín como tabla de
 datos; 725 frases con su validador; hábitos, Director de Sorpresas, bono de paciencia y LED; música generativa de 3 voces; pesca
-con 6 peces y 4 basuras; colección con fichas; guardado v5 con tamaño fijo; 133 tests (84 del motor, 26 de la música, 23 de la pesca)
+con 6 peces y 4 basuras; colección con fichas; el **Estudio de la música** (v1.1: 10 escalas, 6 arpegios, candados y voces silenciables); guardado v6 con tamaño fijo;
+162 tests (84 del motor, 26 de la música, 29 del Estudio, 23 de la pesca)
 más la alfa, limpios con gcc y clang (`-Wall -Wextra -Wpedantic`) y con ASan/UBSan.
 
 **Qué falta** (en bruto, no es de la alfa): todo lo de la lista siguiente.
@@ -759,8 +883,14 @@ Por orden de prioridad (🧪 = número a afinar jugando):
 7. **Carcasa y dos semanas de uso diario (fase 6):** impresión 3D, tornillos, anilla; y ver si el día 14 lo sigues mirando.
 8. **Regalos (fase 7):** personalización por persona (nombre, mascota, visitantes favoritos), **mensajes con fecha de apertura**, el
    **cumpleaños** (la etiqueta `cumple` está en el vocabulario y nada la usa), el "cartucho" por USB y el modo apto para la abuela por regalo.
-9. **Música:** el **gate de oído** de la fase 4 (nadie ha escuchado las semillas), Unidad-7 comentando la música desde la Sala,
-   orden 2 de Markov real (hoy se aproxima con reglas) y la tabla de alias de las cuadradas en el altavoz de 15 mm.
+9. **Música:** el **gate de oído** de la fase 4 (nadie ha escuchado las semillas ni las 10 escalas y 6 arpegios del Estudio: empieza por los
+   14 WAV de `capturas/musica/estudio_*.wav`), Unidad-7 comentando la música desde la Sala, orden 2 de Markov real (hoy se aproxima con reglas) y
+   la tabla de alias de las cuadradas en el altavoz de 15 mm. Ideas para el Estudio que no entraron (el objetivo era "no tanto como un IDE"):
+   **guardar presets** (3 o 4 huecos de ajustes con nombre, y compartir "semilla + ajustes" como un código corto, `#4F2A` + 4 bytes);
+   **grabar la melodía a WAV desde el llavero** (hace falta flash o SD; hoy solo lo hace `llv_headless rec`); **mutar solo una voz** (el ritmo, el
+   bajo o la melodía por separado); volumen por voz y "tap tempo"; más escalas (menor melódica, doble armónica, hexatónica) y más arpegios
+   (por tresillos, con octavas, el acorde entero); fijar el motivo de la melodía y mutar solo las frases B; exportar la canción a MIDI por USB;
+   que el Estudio "suene a lo que tocas" (una vista previa del valor antes de aceptarlo) y un modo ambiente que cambie un parámetro cada vuelta.
 10. **Pulido:** el nombre del llavero y de las mascotas, la web con Emscripten, modo ambiente de la pantalla MIP (v2), efecto LCD
     del simulador en la tarjeta, sonido propio del minijuego (hoy son pitidos) y la tecla de máquina del tiempo también para la pesca.
 
@@ -879,6 +1009,36 @@ Cosas que la spec deja abiertas y se resolvieron por lo más sencillo:
   y suficiente); notas de paso cromáticas (todo es de la escala); más voces o arpegios rápidos al estilo NES (las dos cuadradas
   hacen bajo o arpegio de corcheas); el comentario de Unidad-7 sobre la música en la Sala (es secundario y habría tocado el
   vocabulario de frases: queda para cuando se amplíe el banco).
+
+### Decisiones del Estudio (v1.1)
+
+- **El gesto que lo abre: dos toques seguidos de A en Música (< 0,3 s).** Alternativas descartadas: A+B (es el diario), agitar (el llavero se
+  agita al llevarlo en el bolso), mantener A más tiempo (el A mantenido ya saca una semilla a los 0,45 s) y una pulsación larga de B (es el
+  mundo anterior). Para que abrirlo no deje ninguna mutación de más, **el primer toque actúa como siempre** (mutar al instante, sin la
+  espera de 0,3 s que haría falta para saber si habrá un segundo) y **el segundo lo deshace** (`gs->mus.mut` vuelve a su valor) y abre el
+  panel. Efecto secundario aceptado: dos mutaciones seguidas a menos de 0,3 s ya no son posibles. Si la secuencia encaja con el principio del código
+  secreto (`B B A`), no se abre (el código manda; hay un test).
+- **Un solo tipo de ajuste: valor entero con 0 = AUTO.** Todo es un `uint8_t` en `MusicStudio` y 27 bits en el guardado; `AUTO` y `FIJO` son
+  "valor 0" y "distinto de 0": no hay un bit de candado aparte que pueda desincronizarse del valor. Ciclar los valores incluye `AUTO` al final, así
+  que quitar un candado es dar la vuelta (o, en una lista larga como las progresiones, mantener B para ir hacia atrás por las filas y volver).
+- **Lo fijo se aplica después de las tiradas de la semilla**, nunca en su lugar: así fijar un parámetro no desplaza a los demás (ni cambia su
+  valor AUTO) y con todo en AUTO no hay diferencia con la alfa (el hash del PCM de 32 casos de 70 s y el de 2.048 canciones lo comprueban). Lo
+  que sí hace falta volver a sortear (la familia de progresiones de otra escala, los golpes de un ritmo fijo) usa un segundo PCG32 sembrado con la
+  semilla.
+- **"Apagado" en el arpegio** es "sin arpegio": el bajo toca la fundamental en dos blancas (un pedal), no silencio (para eso están las voces).
+- **El timbre fija las dos cuadradas** (melodía y bajo con el mismo ciclo de trabajo): fijarlo solo en una daba mezclas sin sentido y
+  habría añadido otra fila. **Ritmo** son tres niveles (baja, media, alta) de la densidad del ruido, no un número de golpes: son los que ya
+  usa el generador (la "intensidad de la batería" de 0 a 2) y suenan bien con cualquier semilla.
+- **Silenciar es un fundido de la salida de la voz, no de la generación.** Lo contrario (no generar la voz) cambiaría el estado del LFSR del
+  ruido o de las envolventes y la voz reactivada no volvería en su sitio; esto cumple "sin clics" (rampa de 16 ms), "sin alterar las
+  otras voces" y "retomar sincronizado", y se comprueba muestra a muestra con `music_render_voices`.
+- **Panel modal a casi toda la pantalla con un mini visualizador** (una barra horizontal por voz): los 6 renglones a 5x7 px y las progresiones
+  más largas (`i-VII-III-VII`, 13 letras) no dejan sitio para ver el visualizador original alrededor (un test mide que cada fila cabe en 105 px
+  con tres de hueco). La música sigue sonando y el panel late con ella. La fila `PROG` se llama así (no "PROGRESIÓN") por la misma razón.
+- **Los avisos con el panel abierto salen abajo** (`Semilla #E8D5`, `Mantén A para el dado`): arriba taparían el título. Un toque sobre el dado no
+  hace nada (solo avisa): mutar desde dentro del panel habría duplicado el dado.
+- **Pitidos**: los de siempre (`FrameOut.tones`), que ya hacen que la música ceda; el Estudio no abre ningún camino de audio nuevo.
+- **No entró:** guardar presets, grabar a WAV desde el llavero, mutar una sola voz y un número exacto de golpes del euclidiano por voz (ver la lista de "Pendiente para la beta").
 
 ### Decisiones de la fase 5
 
