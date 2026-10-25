@@ -69,9 +69,12 @@ music-tool: $(B)/llv_music
 # Música (fase 4): 200 semillas a WAV de 30 s, informe con las métricas y los umbrales de "agradable",
 # la comparación con una melodía ingenua, un barrido de las 65.536 semillas y piano rolls y
 # espectrogramas de las primeras. Todo en capturas/musica/ (informe_musica.txt, musica_XXXX.wav...).
+# Estudio (v1.1): el informe de las 77 combinaciones de escala x arpegio (100 semillas cada una, con audio),
+# el piano roll de cada combinación y los WAV de ejemplo (informe_estudio.txt, estudio_*.png, estudio_*.wav).
 music: $(B)/llv_music
 	mkdir -p $(SHOTS)/musica
 	$(B)/llv_music --seeds 200 --seconds 30 --out $(SHOTS)/musica --baseline --sweep 65536 --roll 8
+	$(B)/llv_music --matrix 100 --examples --first 1000 --out $(SHOTS)/musica --report informe_estudio.txt
 
 # Capturas del Reloj, del Jardín/Cobertizo (fase 2), de la Sala con su semana simulada (fase 3), de la Música (fase 4)
 # y de la Pesca con la colección (fase 5).

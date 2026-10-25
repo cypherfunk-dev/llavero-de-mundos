@@ -150,23 +150,23 @@ static void draw_studio(Framebuffer *fb, const GameState *gs, const WorldCtx *ct
         if (muted) /* "MUDA" tachada */
             gfx_rect(fb, 115 - gfx_text_width(v), y + 3, gfx_text_width(v) - 1, 1, C_GREY);
     }
-    /* Hay más filas arriba o abajo: una flechita en la esquina del cuadro. */
-    if (first > 0)
-        for (int k = 0; k < 3; k++)
-            gfx_rect(fb, 111 - k, 13 + k, 1 + 2 * k, 1, C_WHITE);
-    if (first + STUDIO_VISIBLE < SR_COUNT)
-        for (int k = 0; k < 3; k++)
-            gfx_rect(fb, 109 + k, 72 + k, 5 - 2 * k, 1, C_WHITE);
+    /* Una barra de desplazamiento en el borde derecho: dónde está la ventana de filas dentro de la lista. */
+    {
+        int track = STUDIO_VISIBLE * 8, thumb = track * STUDIO_VISIBLE / SR_COUNT;
+        int top = (track - thumb) * first / (SR_COUNT - STUDIO_VISIBLE);
+        gfx_rect(fb, 117, 26, 1, track, C_SKY_S0);
+        gfx_rect(fb, 117, 26 + top, 1, thumb, C_WHITE);
+    }
 
     gfx_rect(fb, 6, 76, 108, 1, C_SKY_S0);
-    gfx_text_center(fb, 79, "B:SIGUE  A:CAMBIA", C_GREY);
-    gfx_text_center(fb, 86, studio_row_is_action(sel) ? "MANTÉN A: TIRAR" : "MANTÉN A: CERRAR", C_VIOLET);
+    gfx_text_center(fb, 78, "B:SIGUE  A:CAMBIA", C_GREY);
+    gfx_text_center(fb, 87, studio_row_is_action(sel) ? "MANTÉN A: TIRAR" : "MANTÉN A: CERRAR", C_VIOLET);
     gfx_rect(fb, 6, 95, 108, 1, C_SKY_S0);
 
     /* El visualizador en miniatura: una barra horizontal por voz (apagada y tachada si está silenciada). */
     static const char *const SHORT[MV_COUNT] = {"MEL", "BAJ", "RUI"};
     for (int v = 0; v < MV_COUNT; v++) {
-        int y = 98 + v * 7;
+        int y = 97 + v * 7;
         bool muted = (ss.mute >> v & 1) != 0;
         gfx_text(fb, 6, y - 1, SHORT[v], muted ? C_GREY_D : C_GREY);
         gfx_rect(fb, 28, y, 85, 5, C_DARK);

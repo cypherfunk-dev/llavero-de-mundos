@@ -77,7 +77,9 @@ add_test(NAME alfa_14_dias_invierno COMMAND llv_headless --date "2027-02-03 08:0
 add_executable(llv_music src/platform/headless/music_tool.c)
 target_link_libraries(llv_music PRIVATE llv_util)
 add_custom_target(music COMMAND llv_music --seeds 200 --out ${CMAKE_BINARY_DIR}/musica --baseline --sweep 65536
-                  COMMAND_EXPAND_LISTS COMMENT "Renderizando semillas y midiendo la música")
+                  COMMAND llv_music --matrix 100 --examples --first 1000 --out ${CMAKE_BINARY_DIR}/musica
+                          --report informe_estudio.txt
+                  COMMAND_EXPAND_LISTS COMMENT "Renderizando semillas y midiendo la música (y las combinaciones del Estudio)")
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/musica)
 
 # Simulador SDL2, solo si hay SDL2.

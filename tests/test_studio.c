@@ -12,6 +12,7 @@
 #include "../src/core/state.h"
 #include "../src/core/studio.h"
 #include "../src/core/timeutil.h"
+#include "../src/util/musicstats.h"
 
 static int checks, failures;
 
@@ -1255,6 +1256,36 @@ static void test_panel_texts_fit(void)
             CHECK(strcmp(music_mode_name(a), music_mode_name(b)) != 0);
 }
 
+/* ---------- calidad musical con ajustes fijos ---------- */
+
+static void test_pleasant_gate_with_fixed_settings(void)
+{
+    /* Los umbrales de "agradable" (src/util/musicstats.h) son los de siempre: no se tocan para el Estudio.
+     * 11 escalas (AUTO + 10) x 7 arpegios (AUTO + 6) = 77 combinaciones, 40 semillas cada una (solo notas;
+     * el informe de llv_music --matrix añade el audio). Cada combinación debe pasar el 80 % y en conjunto el 90 %. */
+    long ok = 0, n = 0, worst_combo_ok = 40;
+    for (int scale = 0; scale <= STUDIO_SCALES; scale++)
+        for (int arp = 0; arp < ARP_COUNT; arp++) {
+            int c_ok = 0;
+            for (int i = 0; i < 40; i++) {
+                uint16_t seed = (uint16_t)(1000 + i * 7 + scale * 13 + arp);
+                MusicStudio s = ST(scale, 0, 0, arp, 0, 0, 0, 0);
+                MusicStyle st;
+                MusicMetrics mm;
+                music_style_ex(&st, seed, mood_for(i), &s);
+                music_song(&sgA, &st, seed, 0);
+                ms_analyze(&sgA, &st, &mm);
+                c_ok += music_judge(&mm, NULL) == 0;
+            }
+            ok += c_ok;
+            n += 40;
+            worst_combo_ok = c_ok < worst_combo_ok ? c_ok : worst_combo_ok;
+            CHECK(c_ok >= 32);
+        }
+    printf("    (%ld de %ld semillas agradables, %.1f %%; la peor combinación: %ld de 40)\n", ok, n, 100.0 * ok / n, worst_combo_ok);
+    CHECK(ok * 10 >= n * 9);
+}
+
 /* ---------- barridos ---------- */
 
 static void test_sweep_every_combination_songs(void)
@@ -1367,6 +1398,7 @@ int main(void)
         {"el Estudio no toca el universo (solo los campos de musica)", test_studio_does_not_touch_universe},
         {"guardado v6: ida y vuelta, rechaza la alfa y valores absurdos", test_save_roundtrip_and_old_rejected},
         {"panel: filas y valores caben en 120x120", test_panel_texts_fit},
+        {"gate: >= 90 % agradables con las 77 combinaciones de escala x arpegio", test_pleasant_gate_with_fixed_settings},
         {"barrido: escalas x tonicas x arpegios x progresiones (canciones)", test_sweep_every_combination_songs},
         {"barrido: escalas x tonicas x arpegios x timbres (audio, sin recortes)", test_sweep_no_overflow_or_clipping_pcm},
     };

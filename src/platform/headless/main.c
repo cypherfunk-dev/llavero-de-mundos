@@ -1861,6 +1861,7 @@ int main(int argc, char **argv)
             const char *sub = argv[++i];
             if (!strcmp(sub, "open")) {
                 goto_world(&s, WORLD_MUSICA);
+                idle(&s, LLV_CODE_GAP_MS + 100); /* tras unos B seguidos, dos A formarían parte del código secreto */
                 tap(&s, BTN_A);
                 tap(&s, BTN_A); /* dos toques seguidos (200 ms entre un soltar y el otro) */
                 if (!engine_studio_open(&s.e)) {

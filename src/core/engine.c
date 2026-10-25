@@ -346,8 +346,10 @@ static void draw_toast(const Engine *e, Framebuffer *fb)
     if (!strchr(e->toast, '\n') && gfx_text_width(e->toast) <= 108) {
         int w = gfx_text_width(e->toast) + 8;
         int x = (LLV_W - w) / 2;
-        gfx_rect(fb, x, 12, w, 12, C_DARK);
-        gfx_text(fb, x + 4, 14, e->toast, C_WHITE);
+        int y = e->studio_open ? 100 : 12; /* con el panel del Estudio abierto, abajo: no tapa su título */
+        gfx_rect(fb, x, y, w, 12, C_DARK);
+        gfx_frame(fb, x, y, w, 12, e->studio_open ? C_VIOLET : C_DARK);
+        gfx_text(fb, x + 4, y + 2, e->toast, C_WHITE);
         return;
     }
     /* mensajes largos: caja de varias líneas */
