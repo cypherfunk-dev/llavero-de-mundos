@@ -10,6 +10,7 @@
 
 #include "../../core/font.h"
 #include "../../core/music.h"
+#include "../../core/studio.h"
 #include "../../util/imgout.h"
 #include "../../util/musicstats.h"
 #include "../../util/wav.h"
@@ -30,9 +31,22 @@ static void usage(const char *p)
            "  --sweep N     mide las notas de N semillas (0..N-1, sin renderizar) con todos los ánimos\n"
            "  --baseline    compara con una melodía ingenua (notas al azar de la escala)\n"
            "  --one S [M]   semilla S con ánimo M (0..255): volcado de notas por pantalla\n"
+           "Ajustes del Estudio (v1.1), fijos para todas las semillas (0 = AUTO):\n"
+           "  --scale N     1 pent. mayor, 2 pent. menor, 3 mayor, 4 menor, 5 dórica, 6 frigia, 7 lidia, 8 mixolidia,\n"
+           "                9 blues, 10 menor armónica\n"
+           "  --key N       tónica 1..12 (Do..Si)       --tempo N   1..11 (60..140 BPM, de 8 en 8)\n"
+           "  --arp N       1 apagado, 2 sube, 3 baja, 4 sube y baja, 5 azar, 6 roto\n"
+           "  --prog N      progresión 1..22 de la tabla  --duty N  1..3 (12,5 / 25 / 50 %%)   --rhythm N  1..3\n"
+           "  --mute M      máscara de voces silenciadas (1 melodía, 2 bajo, 4 ruido)\n"
+           "  --matrix N    informe del Estudio: las 11 escalas (AUTO + 10) x 7 arpegios (AUTO + 6) con N semillas cada una\n"
+           "                (audio incluido); con --roll K también el piano roll de la primera semilla de cada combinación\n"
+           "  --examples    WAV de 20 s y piano roll de cada escala con un arpegio distinto (estudio_*.wav / .png)\n"
            "El ánimo de cada semilla rota entre franjas del día, lluvia, cielo raro y mascota.\n",
            p);
 }
+
+/* Los ajustes fijos de esta ejecución (todo AUTO si no se pide nada). */
+static MusicStudio g_studio;
 
 static uint8_t mood_for(int i)
 {
@@ -75,8 +89,8 @@ static int write_roll(const char *path, uint16_t seed, uint8_t mood, const Music
     for (int i = 0; i < w * h; i++)
         img[i] = 0x14102a;
     char t[128];
-    snprintf(t, sizeof(t), "#%04X  %s  %s  %d BPM  %s  mood %02X", seed, music_mode_name(st->mode), NN[st->key], st->bpm,
-             music_prog_name(st->prog_a), mood);
+    snprintf(t, sizeof(t), "#%04X  %s  %s  %d BPM  %s  %s  mood %02X", seed, music_mode_name(st->mode), NN[st->key], st->bpm,
+             music_prog_name(st->prog_a), st->arp ? music_arp_name(st->arp) : "", mood);
     text(img, w, h, 4, 4, t, 0xf8f8f0, 2);
     /* franjas de las frases y líneas de compás */
     static const char *const PH[4] = {"A", "A'", "B", "A''"};
@@ -286,7 +300,7 @@ static int one(uint16_t seed, uint8_t mood)
 {
     MusicStyle st;
     static MusicSong sg;
-    music_style(&st, seed, mood);
+    music_style_ex(&st, seed, mood, &g_studio);
     music_song(&sg, &st, seed, 0);
     printf("#%04X ánimo %02X: %s %s %d BPM, progresiones %s / %s\n", seed, mood, music_mode_name(st.mode),
            NN[st.key], st.bpm, music_prog_name(st.prog_a), music_prog_name(st.prog_b));
@@ -307,13 +321,170 @@ static int one(uint16_t seed, uint8_t mood)
     return 0;
 }
 
+
+/* ---------- el Estudio: barrido de escalas x arpegios ---------- */
+
+static const char *const SCALE_SLUG[STUDIO_SCALES + 1] = {"auto", "pent_mayor", "pent_menor", "mayor", "menor", "dorica",
+                                                          "frigia", "lidia", "mixolidia", "blues", "menor_armonica"};
+static const char *const ARP_SLUG[ARP_COUNT] = {"auto", "apagado", "sube", "baja", "sube_baja", "azar", "roto"};
+
+static const char *scale_label(int scale) { return scale ? music_mode_name(music_studio_mode(scale)) : "AUTO"; }
+
+/* Informe del Estudio: para cada combinación de escala fija (o AUTO) y arpegio fijo (o AUTO), 'nseeds' semillas
+ * (con el audio de 12 s, que también se juzga) medidas con los mismos umbrales de "agradable" que la música de
+ * siempre. Los umbrales NO se tocan: lo que se ajusta, si una combinación sale áspera, es el generador. */
+static int studio_report(const char *out, const char *report, int nseeds, bool examples, int rolls, uint32_t first,
+                         uint32_t rate)
+{
+    static MusicSong sg;
+    static Music mus;
+    char path[600];
+    snprintf(path, sizeof(path), "%s/%s", out, report);
+    FILE *rep = fopen(path, "w");
+    if (!rep) {
+        fprintf(stderr, "no se pudo escribir %s\n", path);
+        return 1;
+    }
+    fprintf(rep, "Informe del Estudio de la música (v1.1)\n");
+    if (nseeds > 0) {
+        const double secs = 12;
+        size_t n = (size_t)(secs * rate);
+        int16_t *pcm = malloc(n * sizeof(int16_t));
+        if (!pcm)
+            return 1;
+        fprintf(rep, "%d escalas (AUTO + 10) x %d arpegios (AUTO + 6) x %d semillas desde #%04X, ánimo rotando; notas y %.0f s de audio\n"
+                     "juzgados con los umbrales de \"agradable\" de siempre (README). El resto de ajustes, los de la línea de órdenes.\n\n",
+                STUDIO_SCALES + 1, ARP_COUNT, nseeds, (unsigned)first, secs);
+        static Summary by_scale[STUDIO_SCALES + 1], by_arp[ARP_COUNT], all;
+        memset(by_scale, 0, sizeof(by_scale));
+        memset(by_arp, 0, sizeof(by_arp));
+        memset(&all, 0, sizeof(all));
+        long worst_fail[MC_COUNT] = {0};
+        int combos_90 = 0, combos = 0;
+        fprintf(rep, "%-15s %-10s %8s %7s  incumplen (semillas)\n", "escala", "arpegio", "cumplen", "%");
+        for (int scale = 0; scale <= STUDIO_SCALES; scale++)
+            for (int arp = 0; arp < ARP_COUNT; arp++) {
+                MusicStudio ms = g_studio;
+                ms.scale = (uint8_t)scale;
+                ms.arp = (uint8_t)arp;
+                Summary c = {0};
+                for (int i = 0; i < nseeds; i++) {
+                    uint16_t seed = (uint16_t)(first + (uint32_t)i * 7u + (uint32_t)(scale * 13 + arp));
+                    uint8_t mood = mood_for(i);
+                    MusicStyle st;
+                    music_style_ex(&st, seed, mood, &ms);
+                    music_song(&sg, &st, seed, 0);
+                    music_start_studio(&mus, seed, 0, mood, rate, &ms);
+                    if (music_render(&mus, pcm, n) != n)
+                        return 1;
+                    Row r = {seed, mood, {0}, {0}, 0, true};
+                    ms_analyze(&sg, &st, &r.mm);
+                    ms_audio(pcm, n, rate, &r.au);
+                    r.fail = music_judge(&r.mm, &r.au);
+                    sum_add(&c, &r);
+                    sum_add(&by_scale[scale], &r);
+                    sum_add(&by_arp[arp], &r);
+                    sum_add(&all, &r);
+                    if (i == 0 && rolls > 0) {
+                        snprintf(path, sizeof(path), "%s/estudio_%s_%s.png", out, SCALE_SLUG[scale], ARP_SLUG[arp]);
+                        if (write_roll(path, seed, mood, &st, &sg))
+                            fprintf(stderr, "no se pudo escribir %s\n", path);
+                    }
+                }
+                fprintf(rep, "%-15s %-10s %4ld/%-3ld %6.1f%%  ", scale_label(scale), arp ? music_arp_name(arp) : "AUTO", c.ok,
+                        c.n, c.n ? 100.0 * c.ok / c.n : 0.0);
+                for (int k = 0; k < MC_COUNT; k++)
+                    if (c.fails[k]) {
+                        fprintf(rep, " %s:%ld", ms_criterion_name(k), c.fails[k]);
+                        worst_fail[k] += c.fails[k];
+                    }
+                fprintf(rep, "\n");
+                combos++;
+                combos_90 += c.n && 10 * c.ok >= 9 * c.n;
+            }
+        fprintf(rep, "\n=== POR ESCALA (todos los arpegios) ===\n");
+        for (int scale = 0; scale <= STUDIO_SCALES; scale++)
+            fprintf(rep, "%-15s %5ld/%-5ld %6.1f%%\n", scale_label(scale), by_scale[scale].ok, by_scale[scale].n,
+                    by_scale[scale].n ? 100.0 * by_scale[scale].ok / by_scale[scale].n : 0.0);
+        fprintf(rep, "\n=== POR ARPEGIO (todas las escalas) ===\n");
+        for (int arp = 0; arp < ARP_COUNT; arp++)
+            fprintf(rep, "%-15s %5ld/%-5ld %6.1f%%\n", arp ? music_arp_name(arp) : "AUTO", by_arp[arp].ok, by_arp[arp].n,
+                    by_arp[arp].n ? 100.0 * by_arp[arp].ok / by_arp[arp].n : 0.0);
+        fprintf(rep, "\n=== INCUMPLIMIENTOS POR CRITERIO (semillas, de %ld) ===\n", all.n);
+        for (int k = 0; k < MC_COUNT; k++)
+            if (worst_fail[k])
+                fprintf(rep, "%-22s %5ld  (%.1f %%)\n", ms_criterion_name(k), worst_fail[k], 100.0 * worst_fail[k] / all.n);
+        fprintf(rep, "\nTOTAL: %ld de %ld semillas cumplen (%.1f %%) en %d combinaciones; %d de ellas con >= 90 %%\n", all.ok,
+                all.n, 100.0 * all.ok / all.n, combos, combos_90);
+        printf("Estudio: %ld de %ld semillas cumplen (%.1f %%) en %d combinaciones (%d con >= 90 %%)\n", all.ok, all.n,
+               100.0 * all.ok / all.n, combos, combos_90);
+        free(pcm);
+    }
+    if (examples) {
+        const double secs = 20;
+        size_t n = (size_t)(secs * rate);
+        int16_t *pcm = malloc(n * sizeof(int16_t));
+        if (!pcm)
+            return 1;
+        fprintf(rep, "\n=== EJEMPLOS (WAV de %.0f s y piano roll) ===\n", secs);
+        /* Una por escala, con un arpegio distinto cada vez, más algunas con otra tónica, tempo, timbre y ritmo. */
+        for (int k = 0; k < STUDIO_SCALES + 4; k++) {
+            MusicStudio ms = g_studio;
+            ms.scale = (uint8_t)(k < STUDIO_SCALES ? k + 1 : 4 + (k - STUDIO_SCALES) * 2);
+            ms.arp = (uint8_t)(1 + k % 6);
+            if (k >= STUDIO_SCALES) {
+                ms.key = (uint8_t)(3 + 3 * (k - STUDIO_SCALES));
+                ms.tempo = (uint8_t)(2 + 3 * (k - STUDIO_SCALES));
+                ms.duty = (uint8_t)(1 + (k - STUDIO_SCALES) % 3);
+                ms.rhythm = (uint8_t)(1 + (k - STUDIO_SCALES) % 3);
+            }
+            uint16_t seed = (uint16_t)(first + (uint32_t)k * 11u);
+            uint8_t mood = 0x02;
+            MusicStyle st;
+            music_style_ex(&st, seed, mood, &ms);
+            music_song(&sg, &st, seed, 0);
+            music_start_studio(&mus, seed, 0, mood, rate, &ms);
+            if (music_render(&mus, pcm, n) != n)
+                return 1;
+            const char *base = SCALE_SLUG[ms.scale];
+            snprintf(path, sizeof(path), "%s/estudio_%s_%s%s.wav", out, base, ARP_SLUG[ms.arp], k >= STUDIO_SCALES ? "_extra" : "");
+            if (wav_write(path, pcm, n, rate))
+                fprintf(stderr, "no se pudo escribir %s\n", path);
+            snprintf(path, sizeof(path), "%s/estudio_%s_%s%s.png", out, base, ARP_SLUG[ms.arp], k >= STUDIO_SCALES ? "_extra" : "");
+            if (write_roll(path, seed, mood, &st, &sg))
+                fprintf(stderr, "no se pudo escribir %s\n", path);
+            MusicMetrics mm;
+            AudioStats au;
+            ms_analyze(&sg, &st, &mm);
+            ms_audio(pcm, n, rate, &au);
+            unsigned fail = music_judge(&mm, &au);
+            fprintf(rep, "estudio_%s_%s%s: semilla #%04X, %s, tónica %s, %d BPM, progresión %s, arpegio %s, timbre %d, ritmo %d  -> %s",
+                    base, ARP_SLUG[ms.arp], k >= STUDIO_SCALES ? "_extra" : "", seed, music_mode_name(st.mode), NN[st.key],
+                    st.bpm, music_prog_name(st.prog_a), music_arp_name(ms.arp), st.lead_duty, st.drums,
+                    fail ? "NO CUMPLE:" : "agradable");
+            for (int c = 0; c < MC_COUNT; c++)
+                if (fail >> c & 1)
+                    fprintf(rep, " %s", ms_criterion_name(c));
+            fprintf(rep, "\n");
+        }
+        free(pcm);
+    }
+    fclose(rep);
+    snprintf(path, sizeof(path), "%s/%s", out, report);
+    printf("informe: %s\n", path);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int seeds = 200, roll = 6, sweep = 0;
     uint32_t first = 1, rate = LLV_AUDIO_RATE;
     double seconds = 30;
     const char *out = ".", *report = "informe_musica.txt";
-    bool wav = true, baseline = false;
+    bool wav = true, baseline = false, do_one = false, examples = false;
+    int matrix = 0;
+    uint16_t one_seed = 0;
+    uint8_t one_mood = 2;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         bool more = i + 1 < argc;
@@ -341,11 +512,30 @@ int main(int argc, char **argv)
         } else if (!strcmp(a, "--baseline")) {
             baseline = true;
         } else if (!strcmp(a, "--one") && more) {
-            uint16_t s = (uint16_t)strtoul(argv[++i], NULL, 0);
-            uint8_t m = 2;
+            one_seed = (uint16_t)strtoul(argv[++i], NULL, 0);
             if (i + 1 < argc && argv[i + 1][0] != '-')
-                m = (uint8_t)strtoul(argv[++i], NULL, 0);
-            return one(s, m);
+                one_mood = (uint8_t)strtoul(argv[++i], NULL, 0);
+            do_one = true;
+        } else if (!strcmp(a, "--scale") && more) {
+            g_studio.scale = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--key") && more) {
+            g_studio.key = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--tempo") && more) {
+            g_studio.tempo = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--arp") && more) {
+            g_studio.arp = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--prog") && more) {
+            g_studio.prog = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--duty") && more) {
+            g_studio.duty = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--rhythm") && more) {
+            g_studio.rhythm = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--mute") && more) {
+            g_studio.mute = (uint8_t)atoi(argv[++i]);
+        } else if (!strcmp(a, "--matrix") && more) {
+            matrix = atoi(argv[++i]);
+        } else if (!strcmp(a, "--examples")) {
+            examples = true;
         } else {
             fprintf(stderr, "opción desconocida: %s\n", a);
             usage(argv[0]);
@@ -354,6 +544,14 @@ int main(int argc, char **argv)
     }
     if (rate < MUSIC_RATE_MIN || rate > MUSIC_RATE_MAX || seconds < 1 || seconds > 300 || seeds < 0)
         return 2;
+    if (!music_studio_valid(&g_studio)) {
+        fprintf(stderr, "ajustes del Estudio fuera de rango\n");
+        return 2;
+    }
+    if (do_one)
+        return one(one_seed, one_mood);
+    if (matrix > 0 || examples)
+        return studio_report(out, report, matrix, examples, roll, first, rate);
 
     static MusicSong sg, bsg;
     static Music mus;
@@ -380,9 +578,9 @@ int main(int argc, char **argv)
         uint16_t seed = (uint16_t)(first + (uint32_t)i);
         uint8_t mood = mood_for(i);
         MusicStyle st;
-        music_style(&st, seed, mood);
+        music_style_ex(&st, seed, mood, &g_studio);
         music_song(&sg, &st, seed, 0);
-        music_start(&mus, seed, 0, mood, rate);
+        music_start_studio(&mus, seed, 0, mood, rate, &g_studio);
         size_t got = music_render(&mus, pcm, n);
         if (got != n) {
             fprintf(stderr, "render corto en la semilla %u\n", seed);
@@ -428,7 +626,7 @@ int main(int argc, char **argv)
             uint16_t seed = (uint16_t)i;
             uint8_t mood = mood_for(i);
             MusicStyle st;
-            music_style(&st, seed, mood);
+            music_style_ex(&st, seed, mood, &g_studio);
             music_song(&sg, &st, seed, 0);
             Row r = {seed, mood, {0}, {0}, 0, false};
             ms_analyze(&sg, &st, &r.mm);

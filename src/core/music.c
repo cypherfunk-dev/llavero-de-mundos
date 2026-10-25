@@ -158,8 +158,8 @@ static const Trans TR_MAJOR = {      /* 1 2 3 4 5 6 7 */
     {2, 8, 9, 3, 6, 1, 3}, {9, 2, 8, 5, 3, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
     {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
 static const Trans TR_PHRYGIAN = {   /* 1 b2 b3 4 5 b6 b7 */
-    {2, 6, 9, 3, 6, 2, 3}, {10, 2, 5, 3, 2, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
-    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
+    {2, 6, 10, 2, 5, 2, 3}, {10, 2, 6, 3, 2, 1, 1}, {6, 10, 2, 8, 6, 2, 2}, {2, 3, 10, 2, 8, 3, 1},
+    {5, 2, 7, 9, 2, 9, 5}, {2, 1, 3, 3, 10, 2, 7}, {10, 2, 2, 2, 6, 7, 2}};
 static const Trans TR_LYDIAN = {     /* 1 2 3 #4 5 6 7 */
     {2, 8, 9, 3, 6, 2, 3}, {9, 2, 8, 4, 3, 1, 2}, {6, 9, 2, 7, 8, 2, 3}, {2, 3, 6, 2, 10, 3, 2},
     {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
@@ -167,8 +167,8 @@ static const Trans TR_BLUES = {      /* 1 b3 4 b5 5 b7 */
     {2, 9, 5, 3, 6, 3}, {8, 2, 8, 4, 5, 2}, {3, 9, 2, 8, 7, 2}, {2, 3, 7, 2, 9, 4}, {6, 4, 7, 5, 2, 8},
     {9, 2, 3, 2, 8, 2}};
 static const Trans TR_HARMONIC = {   /* 1 2 b3 4 5 b6 7 */
-    {2, 8, 9, 3, 6, 1, 3}, {9, 2, 8, 5, 3, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
-    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 6}, {10, 2, 3, 2, 7, 5, 2}};
+    {2, 10, 9, 2, 4, 1, 4}, {10, 2, 10, 4, 2, 1, 1}, {6, 10, 2, 8, 5, 2, 2}, {2, 3, 10, 2, 9, 2, 1},
+    {4, 2, 7, 9, 2, 9, 4}, {2, 1, 3, 3, 10, 2, 6}, {10, 2, 2, 1, 6, 6, 2}};
 static const Trans *const TRANS[MODE_ALL] = {
     &TR_PENT_MAJ, &TR_PENT_MIN, &TR_DORIAN, &TR_MINOR, &TR_MAJOR, &TR_PHRYGIAN, &TR_LYDIAN, &TR_DORIAN,
     &TR_BLUES,    &TR_HARMONIC};
@@ -584,7 +584,7 @@ static uint32_t next_weights(const Gen *g, int bar, int step, int len, int appr,
             else if (ct)
                 x *= 2;
             else if (x && clashes_with_bass(g, bar, step, len, w->pitch[j]))
-                x /= 6;
+                x /= g->st->adapt ? 24 : 6;   /* escala o progresión fijas: aún menos choques con el bajo */
             int dist = iabs(w->pitch[j] - g->center);
             x *= (uint32_t)(8 + (dist < 8 ? 8 - dist : 0));
             if (appr >= 0) {
