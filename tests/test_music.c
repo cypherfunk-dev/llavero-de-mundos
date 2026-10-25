@@ -794,8 +794,10 @@ static void test_engine_tap_mutates_hold_reseeds(void)
     for (int k = 0; k < 60; k++) {
         engine_frame(&e, a, now, ms += 30);
         engine_frame(&e, none, now, ms += 80);
+        engine_frame(&e, none, now, ms += 400); /* con calma: dos toques en menos de 0,3 s abren el Estudio */
     }
-    CHECK(e.gs.mus.mut >= 50 || e.gs.mus.mut == 0);
+    CHECK(e.gs.mus.mut >= 50);
+    CHECK(!engine_studio_open(&e));
 }
 
 static void test_engine_beeps_duck_music(void)
@@ -1081,7 +1083,7 @@ static void test_info_box_fits(void)
 {
     /* La caja de datos (spec: "DÓRICA · 96 BPM · #4F2A") cabe siempre en 106 px, sin recortes. */
     int worst = 0;
-    for (int mode = 0; mode < MODE_COUNT; mode++)
+    for (int mode = 0; mode < MODE_ALL; mode++)
         for (int bpm = 56; bpm <= 140; bpm += 28)
             for (int mut = 0; mut < 256; mut += 51) {
                 MusicStyle st;

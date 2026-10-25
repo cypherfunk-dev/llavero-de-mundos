@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 static const char *const ROW_NAME[SR_COUNT] = {
-    "ESCALA", "TÓNICA", "TEMPO", "ARPEGIO", "PROG.", "TIMBRE", "RITMO", "MELODÍA", "BAJO", "RUIDO", "DADO",
+    "ESCALA", "TÓNICA", "TEMPO", "ARPEGIO", "PROG", "TIMBRE", "RITMO", "MELODÍA", "BAJO", "RUIDO", "DADO",
 };
 static const char *const NOTE_NAME[12] = {"Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
 static const char *const DUTY_TEXT[STUDIO_DUTIES] = {"12,5 %", "25 %", "50 %"};

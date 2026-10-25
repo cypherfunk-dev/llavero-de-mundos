@@ -846,7 +846,7 @@ static int triad_fit(int mode, int root, int minor)
 /* Armoniza un acorde con la escala (solo si la escala o la progresión las fijó el usuario: el acorde de
  * la tabla puede no ser de esa escala, p. ej. un VI en frigia). Si el acorde ya vale (todas sus notas en
  * las escalas de siete notas; al menos dos en las pentatónicas y el blues) se queda tal cual; si no, se
- * busca el más cercano que sí: la misma fundamental con la otra tercera, o la fundamental un semitono
+ * busca el más cercano que sí: la misma fundamental con la otra tercera, o la fundamental uno o dos semitonos
  * arriba o abajo. Es lo que haría un músico: "acordes diatónicos de la escala elegida". */
 static void adapt_chord(int mode, uint8_t *root, uint8_t *minor)
 {
@@ -854,8 +854,8 @@ static void adapt_chord(int mode, uint8_t *root, uint8_t *minor)
     if (triad_fit(mode, *root, *minor) >= need)
         return;
     int best = -1000, br = *root, bm = *minor;
-    static const int8_t SHIFT[3] = {0, -1, 1};
-    for (int i = 0; i < 3; i++)
+    static const int8_t SHIFT[5] = {0, -1, 1, -2, 2};
+    for (int i = 0; i < 5; i++)
         for (int q = 0; q < 2; q++) {
             int r = (*root + 12 + SHIFT[i]) % 12, m = q ? !*minor : *minor;
             int score = triad_fit(mode, r, m) * 8 - 3 * iabs(SHIFT[i]) - q;

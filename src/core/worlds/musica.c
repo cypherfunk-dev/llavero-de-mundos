@@ -121,47 +121,47 @@ static void draw_studio(Framebuffer *fb, const GameState *gs, const WorldCtx *ct
     int sel = ctx->studio_row < SR_COUNT ? ctx->studio_row : 0;
     int first = studio_first_row(sel, SR_COUNT, STUDIO_VISIBLE);
 
-    gfx_rect(fb, 2, 11, 116, 108, C_DARK);
-    gfx_frame(fb, 2, 11, 116, 108, (beat & 1) ? C_MAGENTA : C_CYAN);
-    gfx_frame(fb, 3, 12, 114, 106, C_VIOLET_D);
+    gfx_rect(fb, 1, 11, 118, 108, C_DARK);
+    gfx_frame(fb, 1, 11, 118, 108, (beat & 1) ? C_MAGENTA : C_CYAN);
+    gfx_frame(fb, 2, 12, 116, 106, C_VIOLET_D);
     /* Título y posición en la lista; debajo, lo que queda para que se cierre solo. */
-    gfx_text(fb, 7, 15, "ESTUDIO", C_CYAN);
+    gfx_text(fb, 6, 15, "ESTUDIO", C_CYAN);
     char t[24];
     snprintf(t, sizeof(t), "%d/%d", sel + 1, SR_COUNT);
-    text_right(fb, 113, 15, t, C_GREY);
-    gfx_rect(fb, 7, 24, 106, 1, C_SKY_S0);
-    gfx_rect(fb, 7, 24, 106 * ctx->studio_left / 255, 1, C_VIOLET);
+    text_right(fb, 114, 15, t, C_GREY);
+    gfx_rect(fb, 6, 24, 108, 1, C_SKY_S0);
+    gfx_rect(fb, 6, 24, 108 * ctx->studio_left / 255, 1, C_VIOLET);
 
     for (int i = 0; i < STUDIO_VISIBLE; i++) {
         int row = first + i, y = 27 + i * 8;
         bool on = row == sel;
         if (on)
-            gfx_rect(fb, 5, y - 1, 110, 8, C_VIOLET_D);
+            gfx_rect(fb, 3, y - 1, 114, 8, C_VIOLET_D);
         bool locked = studio_row_locked(&ss, row);
         bool muted = studio_row_is_switch(row) && studio_row_value(&ss, row) != 0;
         if (locked)
-            draw_lock(fb, 7, y, C_SUN);
-        gfx_text(fb, 14, y, studio_row_name(row), on ? C_WHITE : C_GREY_L);
+            draw_lock(fb, 4, y, C_SUN);
+        gfx_text(fb, 10, y, studio_row_name(row), on ? C_WHITE : C_GREY_L);
         char v[24];
         studio_value_text(v, sizeof(v), &ss, row);
         bool is_auto = !locked && !studio_row_is_switch(row) && !studio_row_is_action(row);
         Color vc = locked ? C_SUN : muted ? C_GREY : is_auto ? C_GREY : studio_row_is_action(row) ? C_PINK : C_CYAN;
-        text_right(fb, 113, y, v, vc);
+        text_right(fb, 115, y, v, vc);
         if (muted) /* "MUDA" tachada */
-            gfx_rect(fb, 113 - gfx_text_width(v), y + 3, gfx_text_width(v) - 1, 1, C_GREY);
+            gfx_rect(fb, 115 - gfx_text_width(v), y + 3, gfx_text_width(v) - 1, 1, C_GREY);
     }
     /* Hay más filas arriba o abajo: una flechita en la esquina del cuadro. */
     if (first > 0)
         for (int k = 0; k < 3; k++)
-            gfx_rect(fb, 112 - k, 13 + k, 1 + 2 * k, 1, C_WHITE);
+            gfx_rect(fb, 111 - k, 13 + k, 1 + 2 * k, 1, C_WHITE);
     if (first + STUDIO_VISIBLE < SR_COUNT)
         for (int k = 0; k < 3; k++)
-            gfx_rect(fb, 110 + k, 72 + k - 0, 5 - 2 * k, 1, C_WHITE);
+            gfx_rect(fb, 109 + k, 72 + k, 5 - 2 * k, 1, C_WHITE);
 
-    gfx_rect(fb, 7, 76, 106, 1, C_SKY_S0);
+    gfx_rect(fb, 6, 76, 108, 1, C_SKY_S0);
     gfx_text_center(fb, 79, "B:SIGUE  A:CAMBIA", C_GREY);
     gfx_text_center(fb, 86, studio_row_is_action(sel) ? "MANTÉN A: TIRAR" : "MANTÉN A: CERRAR", C_VIOLET);
-    gfx_rect(fb, 7, 95, 106, 1, C_SKY_S0);
+    gfx_rect(fb, 6, 95, 108, 1, C_SKY_S0);
 
     /* El visualizador en miniatura: una barra horizontal por voz (apagada y tachada si está silenciada). */
     static const char *const SHORT[MV_COUNT] = {"MEL", "BAJ", "RUI"};
