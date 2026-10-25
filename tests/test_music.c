@@ -1088,7 +1088,7 @@ static void test_info_box_fits(void)
                 memset(&st, 0, sizeof(st));
                 st.mode = (uint8_t)mode;
                 st.bpm = (uint8_t)bpm;
-                MusicSave ms = {0xFFFF, (uint8_t)(mut == 255 ? 255 : mut + 50), 0};
+                MusicSave ms = {0xFFFF, (uint8_t)(mut == 255 ? 255 : mut + 50), 0, 0};
                 char l1[32], l2[32];
                 musica_info_text(&st, &ms, l1, sizeof(l1), l2, sizeof(l2));
                 int w1 = gfx_text_width(l1), w2 = gfx_text_width(l2);
@@ -1099,7 +1099,7 @@ static void test_info_box_fits(void)
     MusicStyle st = {0};
     st.mode = MODE_DORIAN;
     st.bpm = 96;
-    MusicSave ms = {0x4F2A, 0, 0};
+    MusicSave ms = {0x4F2A, 0, 0, 0};
     char l1[32], l2[32];
     musica_info_text(&st, &ms, l1, sizeof(l1), l2, sizeof(l2));
     CHECK(strcmp(l1, "DÓRICA") == 0 && strcmp(l2, "96 BPM · #4F2A") == 0);

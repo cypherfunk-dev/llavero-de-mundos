@@ -32,7 +32,13 @@
 #define MUSIC_SCOPE 128                     /* últimas muestras guardadas para el osciloscopio */
 #define MUSIC_NPROG 22                      /* progresiones de acordes de la tabla */
 
-typedef enum { MODE_PENT_MAJ, MODE_PENT_MIN, MODE_DORIAN, MODE_MINOR, MODE_COUNT } MusicMode;
+/* Las escalas. Las cuatro primeras son las que elige solas la hora y el clima (MODE_COUNT = cuántas);
+ * las otras seis solo salen si el usuario las fija en el Estudio (MODE_ALL = todas). */
+typedef enum {
+    MODE_PENT_MAJ, MODE_PENT_MIN, MODE_DORIAN, MODE_MINOR, MODE_COUNT,
+    MODE_MAJOR = MODE_COUNT, MODE_PHRYGIAN, MODE_LYDIAN, MODE_MIXOLYDIAN, MODE_BLUES, MODE_HARMONIC,
+    MODE_ALL
+} MusicMode;
 
 /* Franja del día para la música: manda en la escala, el tempo y el timbre. */
 typedef enum { DP_NIGHT, DP_DAWN, DP_DAY, DP_DUSK } MusicDaypart;
@@ -44,6 +50,39 @@ typedef enum { DP_NIGHT, DP_DAWN, DP_DAY, DP_DUSK } MusicDaypart;
 #define MOOD_SKY(m) (((m) >> 3) & 3)
 #define MOOD_PET(m) (((m) >> 5) & 7)
 #define MOOD_MAKE(dp, rain, sky, pet) ((uint8_t)((dp) | ((rain) ? MOOD_RAIN : 0) | ((sky) << 3) | ((pet) << 5)))
+
+/* Arpegios de la voz de acompañamiento (Estudio). ARP_AUTO = el estilo que sale de la semilla. */
+enum { ARP_AUTO, ARP_OFF, ARP_UP, ARP_DOWN, ARP_UPDOWN, ARP_RANDOM, ARP_BROKEN, ARP_COUNT };
+
+/* Los ajustes del Estudio (v1.1). Cada parámetro de generación es AUTO (0: lo decide la semilla, la hora
+ * y el clima) o FIJO (1..N: lo elegido por el usuario; ni "mutar" ni "semilla nueva" lo tocan). Las voces
+ * silenciadas no son candados: solo apagan la salida de una voz, sin cambiar lo que se genera. */
+#define STUDIO_SCALES 10        /* escalas fijables, en el orden de la lista (music_studio_mode) */
+#define STUDIO_TEMPOS 11        /* 60, 68, ... 140 BPM */
+#define STUDIO_DUTIES 3         /* 12,5 / 25 / 50 % */
+#define STUDIO_RHYTHMS 3        /* densidad del ruido: baja, media, alta */
+typedef struct {
+    uint8_t scale;     /* 0 AUTO; 1..10 */
+    uint8_t key;       /* 0 AUTO; 1..12: la tónica es la clase de altura key-1 (0 = Do) */
+    uint8_t tempo;     /* 0 AUTO; 1..11: 52 + 8 * tempo BPM */
+    uint8_t arp;       /* 0 AUTO; ARP_OFF..ARP_BROKEN */
+    uint8_t prog;      /* 0 AUTO; 1..MUSIC_NPROG: progresión de la tabla (prog-1) en las cuatro frases */
+    uint8_t duty;      /* 0 AUTO; 1..3: ciclo de trabajo de las dos cuadradas */
+    uint8_t rhythm;    /* 0 AUTO; 1..3: densidad del canal de ruido */
+    uint8_t mute;      /* bit v = la voz v (MV_LEAD, MV_BASS, MV_NOISE) está silenciada */
+} MusicStudio;
+
+/* Empaquetado en 27 bits (GameState.mus.studio): escala 4, tónica 4, tempo 4, arpegio 3, progresión 5,
+ * timbre 2, ritmo 2 y voces 3. Todo AUTO y nada silenciado = 0. */
+uint32_t music_studio_pack(const MusicStudio *s);
+MusicStudio music_studio_unpack(uint32_t packed);
+bool music_studio_valid(const MusicStudio *s);
+bool music_studio_packed_valid(uint32_t packed);   /* sin bits sueltos y todos los campos en rango */
+int music_studio_bpm(int tempo);                   /* 1..11 -> 60..140 */
+int music_studio_mode(int scale);                  /* 1..10 -> MusicMode (orden de la lista) */
+const char *music_arp_name(int arp);               /* "SUBE" */
+/* ¿Hay algún parámetro de generación FIJO? (las voces silenciadas no cuentan) */
+bool music_studio_any_locked(const MusicStudio *s);
 
 /* El estilo: todo lo que decide cómo suena, aparte de las notas. */
 typedef struct {
@@ -62,6 +101,9 @@ typedef struct {
     uint8_t snare_pat;
     uint8_t drums;         /* intensidad de la batería: 0 mínima, 1 normal, 2 plena */
     uint8_t density;       /* de la melodía: 0 escasa, 1 media, 2 densa */
+    /* Estudio (0 con todo en AUTO: el generador es el de la alfa) */
+    uint8_t arp;           /* ARP_AUTO: bajo_style_a/b; si no, ese patrón en todos los compases */
+    uint8_t adapt;         /* 1: los acordes se ajustan a la escala (escala o progresión fijas) */
 } MusicStyle;
 
 typedef struct {
@@ -97,6 +139,9 @@ int music_scale_len(int mode);
 const uint8_t *music_scale(int mode);            /* semitonos desde la tónica */
 
 void music_style(MusicStyle *st, uint16_t seed, uint8_t mood);
+/* Igual con los ajustes del Estudio (NULL = todo AUTO). Lo FIJO se aplica por encima de lo que sale de la
+ * semilla: las demás decisiones de la semilla no se mueven, y con todo AUTO es idéntico a music_style. */
+void music_style_ex(MusicStyle *st, uint16_t seed, uint8_t mood, const MusicStudio *studio);
 void music_song(MusicSong *sg, const MusicStyle *st, uint16_t seed, uint8_t mut);
 /* Björklund con enteros: k golpes repartidos en n pasos (n <= 32). out[i] = 0/1. */
 void music_euclid(uint8_t *out, int k, int n);
@@ -140,6 +185,8 @@ typedef struct {
     MusicStyle style;
     MusicSong song;
     /* reproducción */
+    MusicStudio studio;     /* ajustes del Estudio en vigor */
+    uint32_t vgain[MV_COUNT];   /* Q16: ganancia de cada voz (el silencio es un fundido de ~16 ms) */
     uint8_t active;         /* 1 = produce muestras (también mientras se desvanece) */
     uint8_t stopping;       /* se está apagando */
     uint8_t restart;        /* hay una semilla nueva esperando a que baje el volumen */
@@ -173,6 +220,12 @@ typedef struct {
 
 /* Empieza a sonar desde el principio (entrada suave). rate en Hz (16000..22050 recomendado). */
 void music_start(Music *m, uint16_t seed, uint8_t mut, uint8_t mood, uint32_t rate);
+/* Igual con los ajustes del Estudio (NULL = todo AUTO). Las voces silenciadas empiezan en silencio. */
+void music_start_studio(Music *m, uint16_t seed, uint8_t mut, uint8_t mood, uint32_t rate, const MusicStudio *studio);
+/* Cambia los ajustes en marcha. Si cambia algo de lo que se genera, la canción se rehace al instante (como
+ * al mutar: sin cortar la nota que suena y sin perder el compás); silenciar o reactivar una voz es solo un
+ * fundido de su salida: no toca lo que se genera, y al volver suena sincronizada. */
+void music_set_studio(Music *m, const MusicStudio *studio);
 /* Cambia solo la melodía (mismo estilo), al instante y sin cortar la nota que suena. */
 void music_mutate(Music *m, uint8_t mut);
 /* Semilla nueva: baja el volumen un instante y vuelve a empezar con otro estilo. */
@@ -186,5 +239,9 @@ void music_duck(Music *m, uint16_t ms);
 bool music_active(const Music *m);
 /* Escribe hasta n muestras. Devuelve cuántas (menos que n solo si la música acaba de callar). */
 size_t music_render(Music *m, int16_t *buf, size_t n);
+/* Igual, y además deja en voice[v][i] lo que aporta cada voz a la mezcla (antes del filtro y del volumen),
+ * con el fundido de silenciar ya aplicado: sirve para comprobar que silenciar una voz no cambia las demás.
+ * voice[v] puede ser NULL. Mismo audio que music_render. */
+size_t music_render_voices(Music *m, int16_t *buf, size_t n, int16_t *const voice[MV_COUNT]);
 
 #endif

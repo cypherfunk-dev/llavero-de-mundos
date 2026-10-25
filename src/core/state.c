@@ -12,7 +12,7 @@
 #include "timeutil.h"
 
 #define SAVE_MAGIC 0x31564C4Cu /* "LLV1" */
-#define SAVE_VERSION 5         /* v1-v4 no tenían la Pesca (v1-v3 tampoco la música): se rechazan */
+#define SAVE_VERSION 6         /* v1-v5 no tenían el Estudio de la música (v1-v4 tampoco la Pesca): se rechazan */
 
 /* Peso de cada objeto al recargar la bolsa (spec §3.1). */
 static const uint8_t ITEM_WEIGHT[ITEM_COUNT] = {
@@ -380,7 +380,7 @@ static uint64_t r_bytes(Reader *r, int n)
     X((p)->kind, 1) X((p)->gen, 1) X((p)->age, 2) X((p)->happy, 1) X((p)->thought, 1) \
     X((p)->word_left, 2) X((p)->task_left, 2) X((p)->stage_seen, 1)
 
-#define MUS_FIELDS(X, m) X((m)->seed, 2) X((m)->mut, 1) X((m)->mood, 1)
+#define MUS_FIELDS(X, m) X((m)->seed, 2) X((m)->mut, 1) X((m)->mood, 1) X((m)->studio, 4)
 #define FISH_FIELDS(X, f)                                                              \
     BYTES((f)->caught, LLV_FISH_SPECIES, X) BYTES((f)->best, LLV_FISH_SPECIES, X)      \
     X((f)->junk, 1) X((f)->fled, 1) X((f)->casts, 2)
@@ -460,7 +460,8 @@ static int state_valid(const GameState *t)
         t->dir.cur >= DS_COUNT || t->dir.arg >= 255 || t->hab.enabled >= (1u << HAB_COUNT) ||
         t->hab.done_today >= (1u << HAB_COUNT) || t->hab.asked_today >= (1u << HAB_COUNT) ||
         t->hab.asked_count > LLV_HABIT_MAX_PER_DAY || t->news >= (1u << LLV_WORLD_COUNT) ||
-        (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0 || !music_mood_valid(t->mus.mood))
+        (t->flags & ~(SF_ASLEEP | SF_GRANDMA)) != 0 || !music_mood_valid(t->mus.mood) ||
+        !music_studio_packed_valid(t->mus.studio))
         return 0;
     /* Acciones del día: nunca más que el límite de cada mundo (0 en los que no gastan). */
     static const uint8_t ACTION_LIMIT[LLV_WORLD_COUNT] = {

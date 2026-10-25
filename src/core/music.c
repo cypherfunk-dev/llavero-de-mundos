@@ -18,22 +18,33 @@ static uint64_t mix64(uint64_t x)
 /* Tablas                                                                                  */
 /* ======================================================================================= */
 
-static const uint8_t SCALE_LEN[MODE_COUNT] = {5, 5, 7, 7};
-static const uint8_t SCALE[MODE_COUNT][7] = {
+static const uint8_t SCALE_LEN[MODE_ALL] = {5, 5, 7, 7, 7, 7, 7, 7, 6, 7};
+static const uint8_t SCALE[MODE_ALL][7] = {
     {0, 2, 4, 7, 9, 0, 0},      /* pentatónica mayor: Do Re Mi Sol La */
     {0, 3, 5, 7, 10, 0, 0},     /* pentatónica menor */
     {0, 2, 3, 5, 7, 9, 10},     /* dórica: menor con la sexta mayor */
     {0, 2, 3, 5, 7, 8, 10},     /* menor natural (eólica) */
+    {0, 2, 4, 5, 7, 9, 11},     /* mayor (jónica) */
+    {0, 1, 3, 5, 7, 8, 10},     /* frigia: menor con la segunda bemol */
+    {0, 2, 4, 6, 7, 9, 11},     /* lidia: mayor con la cuarta aumentada */
+    {0, 2, 4, 5, 7, 9, 10},     /* mixolidia: mayor con la séptima menor */
+    {0, 3, 5, 6, 7, 10, 0},     /* blues (menor): pentatónica menor con la quinta bemol "azul" */
+    {0, 2, 3, 5, 7, 8, 11},     /* menor armónica: menor con la sensible */
 };
-static const char *const MODE_NAME[MODE_COUNT] = {"PENTATÓNICA", "PENT. MENOR", "DÓRICA", "MENOR"};
+static const char *const MODE_NAME[MODE_ALL] = {"PENT. MAYOR", "PENT. MENOR", "DÓRICA", "MENOR", "MAYOR",
+                                                "FRIGIA",      "LIDIA",       "MIXOLIDIA", "BLUES", "MENOR ARM."};
+/* Orden de la lista del Estudio (de las más simples a las más raras). */
+static const uint8_t SCALE_ORDER[STUDIO_SCALES] = {MODE_PENT_MAJ, MODE_PENT_MIN, MODE_MAJOR, MODE_MINOR,
+                                                   MODE_DORIAN,   MODE_PHRYGIAN, MODE_LYDIAN, MODE_MIXOLYDIAN,
+                                                   MODE_BLUES,    MODE_HARMONIC};
 
-int music_scale_len(int mode) { return SCALE_LEN[mode % MODE_COUNT]; }
-const uint8_t *music_scale(int mode) { return SCALE[mode % MODE_COUNT]; }
-const char *music_mode_name(int mode) { return MODE_NAME[mode % MODE_COUNT]; }
+int music_scale_len(int mode) { return SCALE_LEN[mode % MODE_ALL]; }
+const uint8_t *music_scale(int mode) { return SCALE[mode % MODE_ALL]; }
+const char *music_mode_name(int mode) { return MODE_NAME[mode % MODE_ALL]; }
 
 /* Escala según la franja del día y la lluvia, en % (spec §4.4: pentatónica de día, menor o dórica de
  * noche, más melancólica con lluvia: con lluvia solo salen las dos menores). */
-static const uint8_t MODE_W[4][2][MODE_COUNT] = {
+static const uint8_t MODE_W[4][2][MODE_COUNT] = { /* solo las cuatro escalas "automáticas" */
     /* noche      */ {{0, 0, 55, 45}, {0, 20, 0, 80}},
     /* amanecer   */ {{80, 0, 20, 0}, {0, 50, 0, 50}},
     /* día        */ {{100, 0, 0, 0}, {0, 55, 0, 45}},
@@ -140,7 +151,27 @@ static const Trans TR_DORIAN = {     /* 1 2 b3 4 5 6 b7 */
 static const Trans TR_MINOR = {      /* 1 2 b3 4 5 b6 b7 */
     {2, 8, 9, 3, 6, 1, 3}, {9, 2, 8, 5, 3, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
     {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
-static const Trans *const TRANS[MODE_COUNT] = {&TR_PENT_MAJ, &TR_PENT_MIN, &TR_DORIAN, &TR_MINOR};
+/* Las seis escalas del Estudio, con el mismo criterio: la sensible sube a la tónica, el 4.º baja al 3.º, la
+ * segunda bemol (frigia) baja a la tónica, la cuarta aumentada (lidia) sube a la quinta y la quinta "azul"
+ * del blues pasa a la quinta o a la cuarta. */
+static const Trans TR_MAJOR = {      /* 1 2 3 4 5 6 7 */
+    {2, 8, 9, 3, 6, 1, 3}, {9, 2, 8, 5, 3, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
+    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
+static const Trans TR_PHRYGIAN = {   /* 1 b2 b3 4 5 b6 b7 */
+    {2, 6, 9, 3, 6, 2, 3}, {10, 2, 5, 3, 2, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
+    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
+static const Trans TR_LYDIAN = {     /* 1 2 3 #4 5 6 7 */
+    {2, 8, 9, 3, 6, 2, 3}, {9, 2, 8, 4, 3, 1, 2}, {6, 9, 2, 7, 8, 2, 3}, {2, 3, 6, 2, 10, 3, 2},
+    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 7}, {10, 2, 3, 2, 7, 6, 2}};
+static const Trans TR_BLUES = {      /* 1 b3 4 b5 5 b7 */
+    {2, 9, 5, 3, 6, 3}, {8, 2, 8, 4, 5, 2}, {3, 9, 2, 8, 7, 2}, {2, 3, 7, 2, 9, 4}, {6, 4, 7, 5, 2, 8},
+    {9, 2, 3, 2, 8, 2}};
+static const Trans TR_HARMONIC = {   /* 1 2 b3 4 5 b6 7 */
+    {2, 8, 9, 3, 6, 1, 3}, {9, 2, 8, 5, 3, 1, 1}, {6, 9, 2, 7, 8, 2, 3}, {3, 3, 10, 2, 7, 3, 1},
+    {7, 3, 7, 7, 2, 7, 5}, {3, 1, 3, 3, 10, 2, 6}, {10, 2, 3, 2, 7, 5, 2}};
+static const Trans *const TRANS[MODE_ALL] = {
+    &TR_PENT_MAJ, &TR_PENT_MIN, &TR_DORIAN, &TR_MINOR, &TR_MAJOR, &TR_PHRYGIAN, &TR_LYDIAN, &TR_DORIAN,
+    &TR_BLUES,    &TR_HARMONIC};
 
 /* Cuánto cuesta cada tamaño de intervalo (en semitonos): sobre todo grados conjuntos y terceras; la
  * quinta es rara y por encima de ella (sextas, séptimas, octava) no se salta. */
@@ -292,6 +323,22 @@ bool music_mood_valid(uint8_t mood)
 
 void music_style(MusicStyle *st, uint16_t seed, uint8_t mood)
 {
+    music_style_ex(st, seed, mood, NULL);
+}
+
+/* Familia de progresiones de cada escala: primera de la tabla y cuántas hay. */
+static void prog_family(int mode, int *base, int *cnt)
+{
+    bool maj = mode == MODE_PENT_MAJ || mode == MODE_MAJOR || mode == MODE_LYDIAN || mode == MODE_MIXOLYDIAN;
+    *base = maj ? PROG_MAJ : mode == MODE_DORIAN ? PROG_DOR : PROG_MIN;
+    *cnt = maj ? 8 : mode == MODE_DORIAN ? 6 : 8;
+}
+
+static const uint8_t KICK_K[3][2] = {{2, 2}, {3, 4}, {4, 5}};
+static const uint8_t HAT_K[3][2] = {{4, 4}, {6, 8}, {10, 12}};
+
+void music_style_ex(MusicStyle *st, uint16_t seed, uint8_t mood, const MusicStudio *studio)
+{
     Rng r;
     rng_seed(&r, mix64(0x57A1E000ull ^ seed), 0x5E1);
     memset(st, 0, sizeof(*st));
@@ -316,8 +363,8 @@ void music_style(MusicStyle *st, uint16_t seed, uint8_t mood)
     st->bpm = (uint8_t)(bpm < 56 ? 56 : bpm > 140 ? 140 : bpm);
 
     /* Progresiones: A y B de la misma familia, distintas entre sí. */
-    int base = st->mode == MODE_PENT_MAJ ? PROG_MAJ : st->mode == MODE_DORIAN ? PROG_DOR : PROG_MIN;
-    int cnt = st->mode == MODE_PENT_MAJ ? 8 : st->mode == MODE_DORIAN ? 6 : 8;
+    int base, cnt;
+    prog_family(st->mode, &base, &cnt);
     int a = (int)rng_below(&r, (uint32_t)cnt);
     int b = (a + 1 + (int)rng_below(&r, (uint32_t)(cnt - 1))) % cnt;
     st->prog_a = (uint8_t)(base + a);
@@ -347,13 +394,51 @@ void music_style(MusicStyle *st, uint16_t seed, uint8_t mood)
     st->drums = (uint8_t)pick_w(&r, DRUM_W[calm], 3);
     if (pet == PET_PIEDRA)
         st->drums = 0;
-    static const uint8_t KICK_K[3][2] = {{2, 2}, {3, 4}, {4, 5}};
-    static const uint8_t HAT_K[3][2] = {{4, 4}, {6, 8}, {10, 12}};
     st->kick_k = KICK_K[st->drums][rng_below(&r, 2)];
     st->hat_k = HAT_K[st->drums][rng_below(&r, 2)];
     st->snare_pat = (uint8_t)(st->drums == 0 ? 3 : rng_below(&r, 3));
     static const uint8_t DENS_W[2][3] = {{10, 50, 40}, {55, 40, 5}};
     st->density = (uint8_t)pick_w(&r, DENS_W[calm], 3);
+    /* Estudio: lo FIJO se aplica por encima. La semilla ya ha hecho todas sus tiradas (en el mismo orden que
+     * siempre), así que lo demás no se mueve; con todo AUTO esto no hace nada. Lo que hay que volver a
+     * elegir (progresiones de otra escala, golpes del ritmo) sale de otro generador sembrado con la semilla. */
+    if (studio) {
+        Rng r2;
+        rng_seed(&r2, mix64(0x57D10000ull ^ seed), 0x57D);
+        int auto_base, auto_cnt;
+        prog_family(st->mode, &auto_base, &auto_cnt);
+        if (studio->scale >= 1 && studio->scale <= STUDIO_SCALES)
+            st->mode = (uint8_t)music_studio_mode(studio->scale);
+        if (studio->key >= 1 && studio->key <= 12) {
+            st->key = (uint8_t)(studio->key - 1);
+            st->tonic = (uint8_t)(57 + (st->key + 12 - 57 % 12) % 12);
+        }
+        if (studio->tempo >= 1 && studio->tempo <= STUDIO_TEMPOS)
+            st->bpm = (uint8_t)music_studio_bpm(studio->tempo);
+        if (studio->prog >= 1 && studio->prog <= MUSIC_NPROG) {
+            st->prog_a = st->prog_b = (uint8_t)(studio->prog - 1);
+        } else {
+            int nb, nc;
+            prog_family(st->mode, &nb, &nc);
+            if (nb != auto_base) { /* otra familia: A y B de la misma, distintas entre sí */
+                int a = (int)rng_below(&r2, (uint32_t)nc);
+                int b = (a + 1 + (int)rng_below(&r2, (uint32_t)(nc - 1))) % nc;
+                st->prog_a = (uint8_t)(nb + a);
+                st->prog_b = (uint8_t)(nb + b);
+            }
+        }
+        if (studio->duty >= 1 && studio->duty <= STUDIO_DUTIES)
+            st->lead_duty = st->bass_duty = (uint8_t)(studio->duty - 1);
+        if (studio->rhythm >= 1 && studio->rhythm <= STUDIO_RHYTHMS) {
+            int d = studio->rhythm - 1;
+            st->drums = (uint8_t)d;
+            st->kick_k = KICK_K[d][rng_below(&r2, 2)];
+            st->hat_k = HAT_K[d][rng_below(&r2, 2)];
+            st->snare_pat = (uint8_t)(d == 0 ? 3 : rng_below(&r2, 3));
+        }
+        st->arp = studio->arp < ARP_COUNT ? studio->arp : ARP_AUTO;
+        st->adapt = (uint8_t)(studio->scale != 0 || studio->prog != 0);
+    }
 }
 
 /* ======================================================================================= */
@@ -742,23 +827,78 @@ static const int8_t *pick_cadence(Gen *g, bool final)
     return CADS[i];
 }
 
+/* ¿Está esta altura (semitonos sobre la tónica, 0..11) en la escala? */
+static bool in_scale_rel(int mode, int rel)
+{
+    for (int d = 0; d < SCALE_LEN[mode]; d++)
+        if (SCALE[mode][d] == rel)
+            return true;
+    return false;
+}
+
+/* Cuántas notas del acorde (fundamental, tercera y quinta) están en la escala. */
+static int triad_fit(int mode, int root, int minor)
+{
+    return in_scale_rel(mode, root % 12) + in_scale_rel(mode, (root + (minor ? 3 : 4)) % 12) +
+           in_scale_rel(mode, (root + 7) % 12);
+}
+
+/* Armoniza un acorde con la escala (solo si la escala o la progresión las fijó el usuario: el acorde de
+ * la tabla puede no ser de esa escala, p. ej. un VI en frigia). Si el acorde ya vale (todas sus notas en
+ * las escalas de siete notas; al menos dos en las pentatónicas y el blues) se queda tal cual; si no, se
+ * busca el más cercano que sí: la misma fundamental con la otra tercera, o la fundamental un semitono
+ * arriba o abajo. Es lo que haría un músico: "acordes diatónicos de la escala elegida". */
+static void adapt_chord(int mode, uint8_t *root, uint8_t *minor)
+{
+    int need = SCALE_LEN[mode] >= 7 ? 3 : 2;
+    if (triad_fit(mode, *root, *minor) >= need)
+        return;
+    int best = -1000, br = *root, bm = *minor;
+    static const int8_t SHIFT[3] = {0, -1, 1};
+    for (int i = 0; i < 3; i++)
+        for (int q = 0; q < 2; q++) {
+            int r = (*root + 12 + SHIFT[i]) % 12, m = q ? !*minor : *minor;
+            int score = triad_fit(mode, r, m) * 8 - 3 * iabs(SHIFT[i]) - q;
+            if (score > best) {
+                best = score;
+                br = r;
+                bm = m;
+            }
+        }
+    *root = (uint8_t)br;
+    *minor = (uint8_t)bm;
+}
+
+/* Fundamental del acorde dominante de la cadencia final (semitonos sobre la tónica) y si la tónica es
+ * menor: V en las escalas con sensible o mayores, séptima menor en las demás (spec §4.4). */
+static const uint8_t DOMINANT[MODE_ALL] = {7, 10, 10, 10, 7, 10, 7, 10, 10, 7};
+static const uint8_t TONIC_MINOR[MODE_ALL] = {0, 1, 1, 1, 0, 1, 0, 0, 1, 1};
+
 static void gen_chords(Gen *g)
 {
     const MusicStyle *st = g->st;
+    int mode = st->mode % MODE_ALL;
     for (int ph = 0; ph < 4; ph++) {
         const Prog *p = &PROGS[ph == 2 ? st->prog_b : st->prog_a];
         for (int b = 0; b < 4; b++) {
             MusicChord *c = &g->sg->chord[ph * 4 + b];
-            c->root = (uint8_t)((st->key + p->root[b]) % 12);
-            c->minor = (uint8_t)((p->minor >> b) & 1);
+            uint8_t root = p->root[b], minor = (uint8_t)((p->minor >> b) & 1);
+            if (st->adapt)
+                adapt_chord(mode, &root, &minor);
+            c->root = (uint8_t)((st->key + root) % 12);
+            c->minor = minor;
         }
     }
-    /* Cadencia final: dominante (V, o la subtónica en los modos menores) y tónica. */
-    bool maj = st->mode == MODE_PENT_MAJ;
-    g->sg->chord[14].root = (uint8_t)((st->key + (maj ? 7 : 10)) % 12);
-    g->sg->chord[14].minor = 0;
-    g->sg->chord[15].root = st->key;
-    g->sg->chord[15].minor = (uint8_t)!maj;
+    /* Cadencia final: dominante y tónica. */
+    uint8_t r14 = DOMINANT[mode], m14 = 0, r15 = 0, m15 = TONIC_MINOR[mode];
+    if (st->adapt) {
+        adapt_chord(mode, &r14, &m14);
+        adapt_chord(mode, &r15, &m15);
+    }
+    g->sg->chord[14].root = (uint8_t)((st->key + r14) % 12);
+    g->sg->chord[14].minor = m14;
+    g->sg->chord[15].root = (uint8_t)((st->key + r15) % 12);
+    g->sg->chord[15].minor = m15;
 }
 
 /* Altura de la primera nota de un compás. */
@@ -869,6 +1009,43 @@ static void bass_note(MusicSong *sg, int bar, int step, int pitch, int len, uint
     n->vol = vol;
 }
 
+/* Los arpegios del Estudio, en corcheas sobre la octava de la fundamental (Do3..Si3): R = fundamental, T =
+ * tercera, F = quinta, O = octava. Cada fila es el orden de las 8 corcheas del compás. */
+enum { AR_R, AR_T, AR_F, AR_O };
+static const uint8_t ARP_SEQ[ARP_COUNT][8] = {
+    {0},                                     /* AUTO: no se usa */
+    {0},                                     /* apagado: dos redondas, aparte */
+    {AR_R, AR_T, AR_F, AR_O, AR_R, AR_T, AR_F, AR_O},   /* sube */
+    {AR_O, AR_F, AR_T, AR_R, AR_O, AR_F, AR_T, AR_R},   /* baja */
+    {AR_R, AR_T, AR_F, AR_O, AR_F, AR_T, AR_R, AR_T},   /* sube y baja */
+    {0},                                     /* aleatorio: se sortea */
+    {AR_R, AR_F, AR_T, AR_F, AR_R, AR_F, AR_T, AR_F},   /* roto (bajo de Alberti) */
+};
+
+static void bass_arp(MusicSong *sg, int bar, const MusicChord *c, int arp, Rng *rb)
+{
+    int r = 36 + c->root;                         /* 36..47: Do2..Si2 */
+    if (arp == ARP_OFF) {                         /* sin arpegio: la fundamental en dos blancas */
+        bass_note(sg, bar, 0, r, 8, 255);
+        bass_note(sg, bar, 8, r, 8, 215);
+        return;
+    }
+    int off[4] = {0, c->minor ? 3 : 4, 7, 12};
+    int prev = -1;
+    for (int i = 0; i < 8; i++) {
+        int k;
+        if (arp == ARP_RANDOM) {
+            k = i == 0 ? AR_R : (int)rng_below(rb, 4);
+            if (k == prev)
+                k = (k + 1 + (int)rng_below(rb, 3)) % 4;
+            prev = k;
+        } else {
+            k = ARP_SEQ[arp][i];
+        }
+        bass_note(sg, bar, i * 2, r + 12 + off[k], 2, i % 4 == 0 ? 255 : 205);
+    }
+}
+
 static void gen_bass(Gen *g, Rng *rb)
 {
     MusicSong *sg = g->sg;
@@ -876,6 +1053,10 @@ static void gen_bass(Gen *g, Rng *rb)
     int pat = (int)rng_below(rb, 2);
     for (int bar = 0; bar < MUSIC_BARS; bar++) {
         const MusicChord *c = &sg->chord[bar];
+        if (g->st->arp != ARP_AUTO) {
+            bass_arp(sg, bar, c, g->st->arp, rb);
+            continue;
+        }
         int style = bar / 4 == 2 ? g->st->bass_style_b : g->st->bass_style_a;
         int r = 36 + c->root;                          /* 36..47: Do2..Si2 */
         int third = r + (c->minor ? 3 : 4), fifth = r + 7;
@@ -970,7 +1151,7 @@ void music_song(MusicSong *sg, const MusicStyle *st, uint16_t seed, uint8_t mut)
     memset(&g, 0, sizeof(g));
     g.st = st;
     g.sg = sg;
-    g.tr = TRANS[st->mode];
+    g.tr = TRANS[st->mode % MODE_ALL];
     gen_chords(&g);
     Rng rb;
     rng_seed(&rb, mix64(0xBA550000ull ^ seed), 0xB5);
@@ -979,6 +1160,55 @@ void music_song(MusicSong *sg, const MusicStyle *st, uint16_t seed, uint8_t mut)
     rng_seed(&g.r, mix64(0x3E10D1E00000ull ^ ((uint64_t)seed << 8) ^ mut), 0x3E1);
     gen_melody(&g);
 }
+
+/* ======================================================================================= */
+/* Ajustes del Estudio                                                                     */
+/* ======================================================================================= */
+
+/* Anchos de los campos en el empaquetado: escala, tónica, tempo, arpegio, progresión, timbre, ritmo, voces. */
+uint32_t music_studio_pack(const MusicStudio *s)
+{
+    return (uint32_t)s->scale | (uint32_t)s->key << 4 | (uint32_t)s->tempo << 8 | (uint32_t)s->arp << 12 |
+           (uint32_t)s->prog << 15 | (uint32_t)s->duty << 20 | (uint32_t)s->rhythm << 22 |
+           (uint32_t)s->mute << 24;
+}
+
+MusicStudio music_studio_unpack(uint32_t p)
+{
+    MusicStudio s;
+    s.scale = (uint8_t)(p & 15);
+    s.key = (uint8_t)(p >> 4 & 15);
+    s.tempo = (uint8_t)(p >> 8 & 15);
+    s.arp = (uint8_t)(p >> 12 & 7);
+    s.prog = (uint8_t)(p >> 15 & 31);
+    s.duty = (uint8_t)(p >> 20 & 3);
+    s.rhythm = (uint8_t)(p >> 22 & 3);
+    s.mute = (uint8_t)(p >> 24 & 7);
+    return s;
+}
+
+bool music_studio_valid(const MusicStudio *s)
+{
+    return s->scale <= STUDIO_SCALES && s->key <= 12 && s->tempo <= STUDIO_TEMPOS && s->arp < ARP_COUNT &&
+           s->prog <= MUSIC_NPROG && s->duty <= STUDIO_DUTIES && s->rhythm <= STUDIO_RHYTHMS && s->mute < 8;
+}
+
+bool music_studio_packed_valid(uint32_t p)
+{
+    MusicStudio s = music_studio_unpack(p);
+    return (p >> 27) == 0 && music_studio_valid(&s);
+}
+
+int music_studio_bpm(int tempo) { return 52 + 8 * tempo; }
+int music_studio_mode(int scale) { return SCALE_ORDER[(scale - 1 + STUDIO_SCALES) % STUDIO_SCALES]; }
+
+bool music_studio_any_locked(const MusicStudio *s)
+{
+    return s->scale || s->key || s->tempo || s->arp || s->prog || s->duty || s->rhythm;
+}
+
+static const char *const ARP_NAME[ARP_COUNT] = {"AUTO", "APAGADO", "SUBE", "BAJA", "SUBE-BAJA", "AZAR", "ROTO"};
+const char *music_arp_name(int arp) { return ARP_NAME[arp % ARP_COUNT]; }
 
 /* ======================================================================================= */
 /* Sintetizador                                                                            */
@@ -991,6 +1221,7 @@ typedef struct {
 } EnvDef;
 static const EnvDef LEAD_ENV[3] = {{2, 20, 215, 6}, {1, 45, 95, 8}, {6, 30, 190, 14}};
 static const EnvDef BASS_ENV = {1, 60, 190, 6};
+#define MUTE_STEP 0x2000u   /* el fundido de una voz silenciada: 8 ticks de control (16 ms) */
 static const int16_t VMAX[MV_COUNT] = {7000, 7000, 4500};   /* suma máxima 18.500: sin recortes */
 
 /* Frecuencias de la octava 0 (Do0 = 16,35 Hz) en 1/64 Hz; cada octava se multiplica por 2. */
@@ -1023,29 +1254,64 @@ static void apply_style(Music *m)
     uint32_t num = m->rate * 15u;
     m->step_base = num / m->style.bpm;
     m->step_rem = num % m->style.bpm;
+    m->step_frac %= m->style.bpm;   /* un cambio de tempo en marcha no deja un resto de más */
 }
 
-void music_start(Music *m, uint16_t seed, uint8_t mut, uint8_t mood, uint32_t rate)
+/* Rehace el estilo y la canción con la semilla, el ánimo, las mutaciones y los ajustes en vigor. */
+static void regenerate(Music *m)
+{
+    music_style_ex(&m->style, m->seed, m->mood, &m->studio);
+    music_song(&m->song, &m->style, m->seed, m->mut);
+    apply_style(m);
+}
+
+static uint32_t mute_gain(const MusicStudio *s, int v)
+{
+    return (s->mute >> v & 1) ? 0 : 0x10000u;
+}
+
+void music_start_studio(Music *m, uint16_t seed, uint8_t mut, uint8_t mood, uint32_t rate, const MusicStudio *studio)
 {
     if (rate < MUSIC_RATE_MIN)
         rate = MUSIC_RATE_MIN;
     if (rate > MUSIC_RATE_MAX)
         rate = MUSIC_RATE_MAX;
     memset(m, 0, sizeof(*m));
+    if (studio && music_studio_valid(studio))
+        m->studio = *studio;
     m->rate = rate;
     m->seed = seed;
     m->mut = mut;
     m->mood = mood;
-    music_style(&m->style, seed, mood);
+    music_style_ex(&m->style, seed, mood, &m->studio);
     music_song(&m->song, &m->style, seed, mut);
     init_tables(m);
     apply_style(m);
+    for (int v = 0; v < MV_COUNT; v++)
+        m->vgain[v] = mute_gain(&m->studio, v);   /* una voz silenciada empieza callada, sin fundido */
     m->lfsr = 1;
     m->active = 1;
     m->duck = 0x10000;
     m->gain = 0;
     m->gain_target = 0x10000;
     m->gain_step = 0x10000 / 10;   /* entrada suave de ~20 ms */
+}
+
+void music_start(Music *m, uint16_t seed, uint8_t mut, uint8_t mood, uint32_t rate)
+{
+    music_start_studio(m, seed, mut, mood, rate, NULL);
+}
+
+void music_set_studio(Music *m, const MusicStudio *studio)
+{
+    if (!studio || !music_studio_valid(studio))
+        return;
+    MusicStudio old = m->studio;
+    m->studio = *studio;
+    /* Silenciar o reactivar una voz no toca lo que se genera: solo cambia su ganancia objetivo (ctrl_tick). */
+    old.mute = studio->mute;
+    if (memcmp(&old, studio, sizeof(old)) != 0)
+        regenerate(m);
 }
 
 void music_mutate(Music *m, uint8_t mut)
@@ -1066,7 +1332,8 @@ static void set_fade(Music *m, uint32_t target, uint32_t ms)
 void music_reseed(Music *m, uint16_t seed, uint8_t mut, uint8_t mood)
 {
     if (!m->active) {
-        music_start(m, seed, mut, mood, m->rate ? m->rate : 22050);
+        MusicStudio studio = m->studio;
+        music_start_studio(m, seed, mut, mood, m->rate ? m->rate : 22050, &studio);
         return;
     }
     m->restart = 1;
@@ -1160,9 +1427,7 @@ static void next_step(Music *m)
             m->has_mood = 0;
             if (m->pend_mood != m->mood) {
                 m->mood = m->pend_mood;
-                music_style(&m->style, m->seed, m->mood);
-                music_song(&m->song, &m->style, m->seed, m->mut);
-                apply_style(m);
+                regenerate(m);
             }
         }
     }
@@ -1247,7 +1512,8 @@ static void pulse_ctrl(Music *m, MusicVoice *v, int vmax)
 static void do_restart(Music *m)
 {
     uint32_t rate = m->rate;
-    music_start(m, m->rs_seed, m->rs_mut, m->rs_mood, rate);
+    MusicStudio studio = m->studio; /* los ajustes del Estudio sobreviven a una semilla nueva */
+    music_start_studio(m, m->rs_seed, m->rs_mut, m->rs_mood, rate, &studio);
 }
 
 /* Un tick de control (~2 ms): volumen, atenuación, envolventes y vibrato. */
@@ -1287,6 +1553,16 @@ static void ctrl_tick(Music *m)
         nz->inc -= step > gap ? gap : step;
     }
     nz->amp = (int16_t)((((int)nz->env * nz->vol) >> 8) * VMAX[MV_NOISE] >> 8);
+    /* Silenciar una voz: su salida se desvanece en ~16 ms (8 ticks) sin clic. Solo se escala lo que sale
+     * a la mezcla: las fases, envolventes y el LFSR siguen su curso, así que al volver suena sincronizada. */
+    for (int i = 0; i < MV_COUNT; i++) {
+        uint32_t target = mute_gain(&m->studio, i);
+        if (m->vgain[i] < target)
+            m->vgain[i] = m->vgain[i] + MUTE_STEP > target ? target : m->vgain[i] + MUTE_STEP;
+        else if (m->vgain[i] > target)
+            m->vgain[i] = m->vgain[i] < target + MUTE_STEP ? target : m->vgain[i] - MUTE_STEP;
+        m->v[i].amp = (int16_t)(((int)m->v[i].amp * (int)(m->vgain[i] >> 8)) >> 8);
+    }
     /* Para la pantalla: las voces con tono dan un destello al empezar cada nota que cae enseguida;
      * el ruido sigue su propia envolvente. */
     for (int i = 0; i < MV_NOISE; i++) {
@@ -1295,9 +1571,11 @@ static void ctrl_tick(Music *m)
         m->level[i] = (uint8_t)(m->flash[i] > hold ? m->flash[i] : hold);
     }
     m->level[MV_NOISE] = (uint8_t)(((int)nz->env * nz->vol) >> 8);
+    for (int i = 0; i < MV_COUNT; i++)
+        m->level[i] = (uint8_t)(((int)m->level[i] * (int)(m->vgain[i] >> 8)) >> 8);
 }
 
-size_t music_render(Music *m, int16_t *buf, size_t n)
+size_t music_render_voices(Music *m, int16_t *buf, size_t n, int16_t *const voice[MV_COUNT])
 {
     size_t i = 0;
     for (; i < n; i++) {
@@ -1317,15 +1595,24 @@ size_t music_render(Music *m, int16_t *buf, size_t n)
         MusicVoice *a = &m->v[MV_LEAD], *b = &m->v[MV_BASS], *nz = &m->v[MV_NOISE];
         a->ph += a->inc;
         b->ph += b->inc;
-        int mix = ((a->ph >> 24) < a->thr) ? a->amp : -((a->amp * a->lomul) >> 8);
-        mix += ((b->ph >> 24) < b->thr) ? b->amp : -((b->amp * b->lomul) >> 8);
+        int va = ((a->ph >> 24) < a->thr) ? a->amp : -((a->amp * a->lomul) >> 8);
+        int vb = ((b->ph >> 24) < b->thr) ? b->amp : -((b->amp * b->lomul) >> 8);
         uint32_t np = m->noise_ph + nz->inc;
         if (np < nz->inc) {   /* el reloj del ruido dio la vuelta: un paso del LFSR de 15 bits */
             uint16_t fb = (uint16_t)((m->lfsr ^ (m->lfsr >> 1)) & 1u);
             m->lfsr = (uint16_t)((m->lfsr >> 1) | (fb << 14));
         }
         m->noise_ph = np;
-        mix += (m->lfsr & 1u) ? nz->amp : -nz->amp;
+        int vn = (m->lfsr & 1u) ? nz->amp : -nz->amp;
+        int mix = va + vb + vn;
+        if (voice) {
+            if (voice[MV_LEAD])
+                voice[MV_LEAD][i] = (int16_t)va;
+            if (voice[MV_BASS])
+                voice[MV_BASS][i] = (int16_t)vb;
+            if (voice[MV_NOISE])
+                voice[MV_NOISE][i] = (int16_t)vn;
+        }
 
         /* Filtro de un polo (suaviza el timbre y los alias) y volumen. */
         m->lp += ((mix - m->lp) * (int)m->style.lpf) >> 8;
@@ -1343,4 +1630,9 @@ size_t music_render(Music *m, int16_t *buf, size_t n)
         }
     }
     return i;
+}
+
+size_t music_render(Music *m, int16_t *buf, size_t n)
+{
+    return music_render_voices(m, buf, n, NULL);
 }

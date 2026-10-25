@@ -180,11 +180,14 @@ typedef struct {
 
 /* La música (fase 4, spec §4.4): lo mínimo para volver a oír lo mismo. La semilla de la melodía
  * (#4F2A), cuántas veces se ha mutado y el ánimo del universo con el que sonó (ver music.h). La
- * música no usa gs->rng: tiene su propio PCG32 sembrado con esta semilla. */
+ * música no usa gs->rng: tiene su propio PCG32 sembrado con esta semilla. Y, desde el Estudio (v1.1),
+ * los ajustes del usuario empaquetados en 27 bits (music_studio_pack: escala, tónica, tempo, arpegio,
+ * progresión, timbre, ritmo y voces silenciadas; 0 = todo AUTO). */
 typedef struct {
     uint16_t seed;
     uint8_t mut;
     uint8_t mood;
+    uint32_t studio;
 } MusicSave;
 
 /* La Pesca (fase 5, spec §4.5): lo que queda de pescar. El minijuego en curso no se guarda. */
