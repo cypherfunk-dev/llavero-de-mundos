@@ -37,6 +37,9 @@ $(B)/llv_tests: tests/test_main.c $(CORE) $(wildcard src/core/*.h) | $(B)
 $(B)/llv_test_music: tests/test_music.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
 	$(CC) $(CFLAGS) tests/test_music.c $(UTIL) $(CORE) -lm -o $@
 
+$(B)/llv_test_studio: tests/test_studio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/util/*.h) | $(B)
+	$(CC) $(CFLAGS) tests/test_studio.c $(UTIL) $(CORE) -lm -o $@
+
 $(B)/llv_test_pesca: tests/test_pesca.c $(CORE) $(wildcard src/core/*.h) | $(B)
 	$(CC) $(CFLAGS) tests/test_pesca.c $(CORE) -lm -o $@
 
@@ -49,9 +52,10 @@ $(B)/llv_music: src/platform/headless/music_tool.c $(UTIL) $(CORE) $(wildcard sr
 $(B)/llv_sim: src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(wildcard src/core/*.h src/hal/*.h src/platform/sdl/*.h) | $(B)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) src/platform/sdl/main.c src/platform/sdl/hal_sdl.c src/hal/boot.c src/hal/audio.c $(UTIL) $(CORE) $(SDL_LIBS) -lm -o $@
 
-test: $(B)/llv_tests $(B)/llv_test_music $(B)/llv_test_pesca $(B)/llv_headless
+test: $(B)/llv_tests $(B)/llv_test_music $(B)/llv_test_studio $(B)/llv_test_pesca $(B)/llv_headless
 	$(B)/llv_tests
 	$(B)/llv_test_music
+	$(B)/llv_test_studio
 	$(B)/llv_test_pesca
 	$(B)/llv_headless --date "2026-10-22 08:00" --seed 7 --out $(B) alpha 14 $(B)/informe_alfa.txt stock > $(B)/alfa.log
 	@echo "alfa de 14 días: 0 violaciones ($(B)/informe_alfa.txt)"
