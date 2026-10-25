@@ -1,19 +1,24 @@
 /* 🎵 Música generativa (spec §4.4): chiptune de tres voces con paleta neón sobre fondo oscuro (§12.2).
  * A (toque): mutar. Cambia la melodía (motivo y variaciones) y conserva el estilo: misma escala,
  *   progresión y tempo.
- * A (mantener): nueva semilla. Otra escala, otro tempo, otro todo.
+ * A (mantener): nueva semilla. Otra escala, otro tempo, otro todo (menos lo que el usuario fijó).
+ * A A (dos toques seguidos): abre el Estudio (v1.1), una ventana sobre el visualizador para fijar la
+ *   escala, la tónica, el tempo, el arpegio, la progresión, el timbre y el ritmo, y silenciar voces.
+ *   El motor se lleva los gestos mientras está abierto (engine.c) y este mundo dibuja el panel.
  * Límite: ninguno. Solo consume batería mientras estás en este mundo (el motor calla la música al
- * salir o dormir). El estado guardado son 4 bytes (GameState.mus): semilla, mutaciones y ánimo.
+ * salir o dormir). El estado guardado son 8 bytes (GameState.mus): semilla, mutaciones, ánimo y los
+ * ajustes del Estudio empaquetados.
  *
  * El visualizador no mira al altavoz: dibuja lo que calcula el mismo generador (music.c), así que se
  * ve igual sin audio. Todo lo de aquí que no es GameState es visual y efímero. */
 #include <stdio.h>
 
 #include "../music.h"
+#include "../studio.h"
 #include "../world.h"
 
 static const Color NEON[MV_COUNT] = {C_CYAN, C_MAGENTA, C_SUN};
-static const char *const VOICE_NAME[MV_COUNT] = {"VOZ 1", "VOZ 2", "RUIDO"};
+static const char *const VOICE_NAME[MV_COUNT] = {"MELOD.", "BAJO", "RUIDO"};
 
 /* Efímero: máximos que caen despacio en las barras. */
 static uint8_t peak[MV_COUNT];
@@ -56,34 +61,122 @@ static void musica_hold(GameState *gs, const WorldCtx *ctx)
     world_toast(ctx, msg, 1400);
 }
 
-/* Los dos renglones de la caja: "DÓRICA +3" (escala y mutaciones) y "96 BPM · #4F2A" (tempo y semilla).
- * Caben en 106 px (17 letras) con cualquier valor: lo comprueba tests/test_music.c. */
+/* Los dos renglones de la caja: "DÓRICA +3" (escala y mutaciones) y "96 BPM · #4F2A" (tempo y semilla). Un
+ * asterisco marca lo que el usuario fijó en el Estudio ("DÓRICA* +3", "96* BPM · #4F2A"). Caben en 106 px
+ * (17 letras) con cualquier valor: lo comprueba tests/test_music.c. */
 void musica_info_text(const MusicStyle *st, const MusicSave *ms, char *l1, size_t n1, char *l2, size_t n2)
 {
+    MusicStudio ss = music_studio_unpack(ms->studio);
+    const char *sc = ss.scale ? "*" : "", *tp = ss.tempo ? "*" : "";
     if (ms->mut)
-        snprintf(l1, n1, "%s +%u", music_mode_name(st->mode), (unsigned)ms->mut);
+        snprintf(l1, n1, "%s%s +%u", music_mode_name(st->mode), sc, (unsigned)ms->mut);
     else
-        snprintf(l1, n1, "%s", music_mode_name(st->mode));
-    snprintf(l2, n2, "%d BPM · #%04X", st->bpm, ms->seed);
+        snprintf(l1, n1, "%s%s", music_mode_name(st->mode), sc);
+    snprintf(l2, n2, "%d%s BPM · #%04X", st->bpm, tp, ms->seed);
 }
 
-static const char *const NOTE_NAME[12] = {"Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
-
-/* Una barra de 8 segmentos que se enciende según el nivel (0..255) con su máximo marcado. */
-static void draw_meter(Framebuffer *fb, int x, int base_y, int w, int level, int pk, Color c)
+/* Una barra de 8 segmentos que se enciende según el nivel (0..255) con su máximo marcado. Una voz
+ * silenciada se ve apagada: segmentos grises y una raya que la tacha. */
+static void draw_meter(Framebuffer *fb, int x, int base_y, int w, int level, int pk, Color c, bool muted)
 {
-    int lit = (level * 8 + 127) / 255;
-    int pks = (pk * 8 + 127) / 255;
+    int lit = muted ? 0 : (level * 8 + 127) / 255;
+    int pks = muted ? 0 : (pk * 8 + 127) / 255;
     for (int s = 0; s < 8; s++) {
         int y = base_y - (s + 1) * 4 + 1;
-        Color col = C_VIOLET_D;
+        Color col = muted ? C_DARK : C_VIOLET_D;
         if (s < lit)
             col = s >= 7 ? C_WHITE : c;
         else if (s == pks - 1 && pks > 0)
             col = C_WHITE;
         gfx_rect(fb, x, y, w, 3, col);
         if (s >= lit && !(s == pks - 1 && pks > 0))
-            gfx_frame(fb, x, y, w, 3, C_SKY_S0);
+            gfx_frame(fb, x, y, w, 3, muted ? C_GREY_D : C_SKY_S0);
+    }
+    if (muted) /* tachada */
+        for (int i = 0; i < w; i++)
+            gfx_pset(fb, x + i, base_y - 16 + (i * 3) / w - 1, C_GREY);
+}
+
+/* Un candado de 5x6 px: el marcador de "FIJO". */
+static void draw_lock(Framebuffer *fb, int x, int y, Color c)
+{
+    gfx_rect(fb, x + 1, y, 3, 1, c);
+    gfx_rect(fb, x, y + 1, 1, 2, c);
+    gfx_rect(fb, x + 4, y + 1, 1, 2, c);
+    gfx_rect(fb, x, y + 3, 5, 3, c);
+    gfx_pset(fb, x + 2, y + 4, C_DARK);
+}
+
+static void text_right(Framebuffer *fb, int right, int y, const char *t, Color c)
+{
+    gfx_text(fb, right - gfx_text_width(t), y, t, c);
+}
+
+/* El panel del Estudio: una ventana sobre el visualizador (que sigue sonando y viéndose debajo en
+ * miniatura). Seis filas visibles con scroll; cada fila FIJA lleva un candado, las AUTO dicen "AUTO". */
+static void draw_studio(Framebuffer *fb, const GameState *gs, const WorldCtx *ctx, bool live, int beat)
+{
+    const Music *m = ctx->music;
+    MusicStudio ss = music_studio_unpack(gs->mus.studio);
+    int sel = ctx->studio_row < SR_COUNT ? ctx->studio_row : 0;
+    int first = studio_first_row(sel, SR_COUNT, STUDIO_VISIBLE);
+
+    gfx_rect(fb, 2, 11, 116, 108, C_DARK);
+    gfx_frame(fb, 2, 11, 116, 108, (beat & 1) ? C_MAGENTA : C_CYAN);
+    gfx_frame(fb, 3, 12, 114, 106, C_VIOLET_D);
+    /* Título y posición en la lista; debajo, lo que queda para que se cierre solo. */
+    gfx_text(fb, 7, 15, "ESTUDIO", C_CYAN);
+    char t[24];
+    snprintf(t, sizeof(t), "%d/%d", sel + 1, SR_COUNT);
+    text_right(fb, 113, 15, t, C_GREY);
+    gfx_rect(fb, 7, 24, 106, 1, C_SKY_S0);
+    gfx_rect(fb, 7, 24, 106 * ctx->studio_left / 255, 1, C_VIOLET);
+
+    for (int i = 0; i < STUDIO_VISIBLE; i++) {
+        int row = first + i, y = 27 + i * 8;
+        bool on = row == sel;
+        if (on)
+            gfx_rect(fb, 5, y - 1, 110, 8, C_VIOLET_D);
+        bool locked = studio_row_locked(&ss, row);
+        bool muted = studio_row_is_switch(row) && studio_row_value(&ss, row) != 0;
+        if (locked)
+            draw_lock(fb, 7, y, C_SUN);
+        gfx_text(fb, 14, y, studio_row_name(row), on ? C_WHITE : C_GREY_L);
+        char v[24];
+        studio_value_text(v, sizeof(v), &ss, row);
+        bool is_auto = !locked && !studio_row_is_switch(row) && !studio_row_is_action(row);
+        Color vc = locked ? C_SUN : muted ? C_GREY : is_auto ? C_GREY : studio_row_is_action(row) ? C_PINK : C_CYAN;
+        text_right(fb, 113, y, v, vc);
+        if (muted) /* "MUDA" tachada */
+            gfx_rect(fb, 113 - gfx_text_width(v), y + 3, gfx_text_width(v) - 1, 1, C_GREY);
+    }
+    /* Hay más filas arriba o abajo: una flechita en la esquina del cuadro. */
+    if (first > 0)
+        for (int k = 0; k < 3; k++)
+            gfx_rect(fb, 112 - k, 13 + k, 1 + 2 * k, 1, C_WHITE);
+    if (first + STUDIO_VISIBLE < SR_COUNT)
+        for (int k = 0; k < 3; k++)
+            gfx_rect(fb, 110 + k, 72 + k - 0, 5 - 2 * k, 1, C_WHITE);
+
+    gfx_rect(fb, 7, 76, 106, 1, C_SKY_S0);
+    gfx_text_center(fb, 79, "B:SIGUE  A:CAMBIA", C_GREY);
+    gfx_text_center(fb, 86, studio_row_is_action(sel) ? "MANTÉN A: TIRAR" : "MANTÉN A: CERRAR", C_VIOLET);
+    gfx_rect(fb, 7, 95, 106, 1, C_SKY_S0);
+
+    /* El visualizador en miniatura: una barra horizontal por voz (apagada y tachada si está silenciada). */
+    static const char *const SHORT[MV_COUNT] = {"MEL", "BAJ", "RUI"};
+    for (int v = 0; v < MV_COUNT; v++) {
+        int y = 98 + v * 7;
+        bool muted = (ss.mute >> v & 1) != 0;
+        gfx_text(fb, 6, y - 1, SHORT[v], muted ? C_GREY_D : C_GREY);
+        gfx_rect(fb, 28, y, 85, 5, C_DARK);
+        gfx_frame(fb, 28, y, 85, 5, muted ? C_GREY_D : C_SKY_S0);
+        int lvl = live && !muted ? m->level[v] : 0;
+        if (lvl > 0)
+            gfx_rect(fb, 29, y + 1, lvl * 83 / 255, 3, NEON[v]);
+        if (muted)
+            for (int x = 30; x < 112; x += 4)
+                gfx_rect(fb, x, y + 2, 2, 1, C_GREY);
     }
 }
 
@@ -91,10 +184,11 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
 {
     const Music *m = ctx->music;
     bool live = m && music_active(m) && m->steps_played > 0;
+    MusicStudio ss = music_studio_unpack(gs->mus.studio);
     MusicStyle idle;
     const MusicStyle *st = live ? &m->style : &idle;
     if (!live)
-        music_style(&idle, gs->mus.seed, music_mood(gs, ctx->now));
+        music_style_ex(&idle, gs->mus.seed, music_mood(gs, ctx->now), &ss);
     int beat = live ? m->pos / 4 : 0;
 
     /* Fondo: del violeta casi negro al gris oscuro, con estrellitas que parpadean (3 frames). */
@@ -108,7 +202,8 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
         gfx_pset(fb, x, y, f == 0 ? C_SKY_S0 : f == 1 ? C_SKY_S1 : C_VIOLET);
     }
 
-    /* La caja de datos: escala, tempo, semilla (con el número de mutaciones). El borde late con el pulso. */
+    /* La caja de datos: escala, tempo, semilla (con el número de mutaciones). El borde late con el pulso.
+     * Un candado en la esquina avisa de que hay otros ajustes fijos (tónica, arpegio, progresión...). */
     Color border = (beat & 1) ? C_MAGENTA : C_CYAN;
     gfx_rect(fb, 4, 12, 112, 21, C_DARK);
     gfx_frame(fb, 4, 12, 112, 21, border);
@@ -117,17 +212,19 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
     musica_info_text(st, &gs->mus, l1, sizeof(l1), l2, sizeof(l2));
     gfx_text_center(fb, 15, l1, C_WHITE);
     gfx_text_center(fb, 24, l2, C_PINK);
+    if (ss.key || ss.arp || ss.prog || ss.duty || ss.rhythm)
+        draw_lock(fb, 108, 15, C_SUN);
 
     /* El osciloscopio: las últimas muestras del generador. */
-    gfx_rect(fb, 4, 36, 112, 23, C_DARK);
-    gfx_frame(fb, 4, 36, 112, 23, C_SKY_S0);
-    gfx_rect(fb, 6, 47, 108, 1, C_SKY_N3);
+    gfx_rect(fb, 4, 36, 112, 20, C_DARK);
+    gfx_frame(fb, 4, 36, 112, 20, C_SKY_S0);
+    gfx_rect(fb, 6, 46, 108, 1, C_SKY_N3);
     if (live) {
-        int prev_y = 47;
+        int prev_y = 46;
         for (int x = 0; x < 108; x++) {
             int idx = ((int)m->scope_pos + MUSIC_SCOPE - 108 + x) % MUSIC_SCOPE;
-            int y = 47 - m->scope[idx] / 1700;
-            y = y < 38 ? 38 : y > 56 ? 56 : y;
+            int y = 46 - m->scope[idx] / 1900;
+            y = y < 38 ? 38 : y > 54 ? 54 : y;
             int y0 = prev_y < y ? prev_y : y, y1 = prev_y < y ? y : prev_y;
             if (x == 0)
                 y0 = y1 = y;
@@ -136,6 +233,8 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
             prev_y = y;
         }
     }
+    if (!ctx->studio) /* la pista, discreta */
+        gfx_text_center(fb, 57, "A A: ESTUDIO", C_SKY_S1);
 
     /* Una barra por voz, con máximos que caen despacio. */
     if (ctx->ms - peak_ms >= 90 || ctx->ms < peak_ms) {
@@ -145,11 +244,12 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
     }
     for (int v = 0; v < MV_COUNT; v++) {
         int lvl = live ? m->level[v] : 0;
+        bool muted = (ss.mute >> v & 1) != 0;
         if (lvl > peak[v])
             peak[v] = (uint8_t)lvl;
         int x = 6 + v * 40;
-        draw_meter(fb, x, 94, 28, lvl, peak[v], NEON[v]);
-        gfx_text(fb, x + 14 - gfx_text_width(VOICE_NAME[v]) / 2, 96, VOICE_NAME[v], C_GREY);
+        draw_meter(fb, x, 95, 28, lvl, peak[v], NEON[v], muted);
+        gfx_text(fb, x + 14 - gfx_text_width(VOICE_NAME[v]) / 2, 97, VOICE_NAME[v], muted ? C_GREY_D : C_GREY);
     }
 
     /* Los 16 pasos del compás y los 16 compases (A A' B A''). */
@@ -173,9 +273,12 @@ static void musica_render(const GameState *gs, const WorldCtx *ctx, Framebuffer 
     if (live) {
         const MusicChord *ch = &m->song.chord[bar];
         char name[8];
-        snprintf(name, sizeof(name), "%s%s", NOTE_NAME[ch->root], ch->minor ? "m" : "");
+        snprintf(name, sizeof(name), "%s%s", studio_note_name(ch->root), ch->minor ? "m" : "");
         gfx_text(fb, 5, 113, name, bar / 4 == 2 ? C_MAGENTA : C_CYAN);
     }
+
+    if (ctx->studio)
+        draw_studio(fb, gs, ctx, live, beat);
 }
 
 const World world_musica = {

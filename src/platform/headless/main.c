@@ -13,6 +13,7 @@
 #include "../../core/garden.h"
 #include "../../core/habits.h"
 #include "../../core/pet.h"
+#include "../../core/studio.h"
 #include "../../core/phrases.h"
 #include "../../core/talk.h"
 #include "../../core/timeutil.h"
@@ -1575,6 +1576,11 @@ static void usage(const char *p)
            "Música (fase 4):\n"
            "  weather N | sky N   clima (0 despejado 1 lluvia 2 viento 3 nieve) y cielo (0 nada 1 estrella 2 arcoíris)\n"
            "  musicseed S    semilla de la melodía (0..65535), sin mutaciones;  music  describe lo que suena\n"
+           "Estudio (v1.1; dos toques de A en Música lo abren: `tap a tap a`):\n"
+           "  studio open|close|clear   abre o cierra el panel;  clear  pone todo en AUTO y las voces a sonar\n"
+           "  studio row N              selecciona la fila del panel (0 escala, 1 tónica, 2 tempo, 3 arpegio, 4 prog., 5 timbre,\n"
+           "                            6 ritmo, 7 melodía, 8 bajo, 9 ruido, 10 dado)\n"
+           "  studio set FILA V         fija el valor V (0 = AUTO; en las voces 1 = muda) de esa fila (0..9)\n"
            "  rec ARCHIVO    empieza a grabar el audio (lo que sonaría) a un WAV;  recstop  lo cierra y lo escribe\n"
            "  info           imprime un resumen del estado\n",
            p);
@@ -1851,11 +1857,43 @@ int main(int argc, char **argv)
         } else if (!strcmp(c, "musicseed") && m1) {
             s.e.gs.mus.seed = (uint16_t)strtoul(argv[++i], NULL, 0);
             s.e.gs.mus.mut = 0;
+        } else if (!strcmp(c, "studio") && m1) {
+            const char *sub = argv[++i];
+            if (!strcmp(sub, "open")) {
+                goto_world(&s, WORLD_MUSICA);
+                tap(&s, BTN_A);
+                tap(&s, BTN_A); /* dos toques seguidos (200 ms entre un soltar y el otro) */
+                if (!engine_studio_open(&s.e)) {
+                    fprintf(stderr, "el Estudio no se abrió\n");
+                    rc = 1;
+                }
+            } else if (!strcmp(sub, "close")) {
+                engine_studio_close(&s.e);
+            } else if (!strcmp(sub, "clear")) {
+                s.e.gs.mus.studio = 0;
+            } else if (!strcmp(sub, "row") && i + 1 < argc) {
+                s.e.studio_row = (uint8_t)(atoi(argv[++i]) % SR_COUNT);
+            } else if (!strcmp(sub, "set") && i + 2 < argc) {
+                MusicStudio st = music_studio_unpack(s.e.gs.mus.studio);
+                int row = atoi(argv[i + 1]), val = atoi(argv[i + 2]);
+                i += 2;
+                if (row < 0 || row >= SR_COUNT || val < 0 || val >= studio_row_values(row)) {
+                    fprintf(stderr, "studio set FILA VALOR fuera de rango (fila %d, valor %d)\n", row, val);
+                    rc = 2;
+                } else {
+                    studio_set(&st, row, val);
+                    s.e.gs.mus.studio = music_studio_pack(&st);
+                    frame(&s, 20, 0, false);
+                }
+            } else {
+                fprintf(stderr, "studio: subcomando no válido: %s\n", sub);
+                rc = 2;
+            }
         } else if (!strcmp(c, "music")) {
             const Music *m = &s.e.music;
             if (music_active(m))
                 printf("música: #%04X +%u  %s  %s  %d BPM  %s / %s  paso %u (compás %u, vuelta %u)  ánimo %02X\n",
-                       m->seed, m->mut, music_mode_name(m->style.mode), "", m->style.bpm,
+                       m->seed, m->mut, music_mode_name(m->style.mode), studio_note_name(m->style.key), m->style.bpm,
                        music_prog_name(m->style.prog_a), music_prog_name(m->style.prog_b), (unsigned)m->pos,
                        (unsigned)m->pos / 16, (unsigned)m->loops, m->mood);
             else

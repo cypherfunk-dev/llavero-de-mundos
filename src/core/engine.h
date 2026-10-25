@@ -64,6 +64,14 @@ typedef struct {
     /* Fase 4: el sintetizador. Efímero: lo que se guarda es gs.mus (semilla, mutaciones, ánimo). */
     Music music;
 
+    /* Estudio de la música (v1.1): efímero; lo que se guarda son los ajustes (gs.mus.studio). */
+    bool studio_open;
+    uint8_t studio_row;          /* fila seleccionada (StudioRow) */
+    uint32_t studio_until_ms;    /* se cierra solo cuando llega */
+    uint32_t atap_ms;            /* último toque de A en Música (para el doble toque que abre el Estudio) */
+    uint8_t atap_prev_mut;       /* las mutaciones que había antes de ese toque */
+    bool atap_valid;
+
     /* Fase 5: aviso pendiente para cuando despierte (p. ej. la pesca que se cortó al dormirse). */
     char wake_msg[96];
 } Engine;
@@ -95,6 +103,9 @@ size_t engine_audio_render(Engine *e, int16_t *buf, size_t max);
 int64_t engine_advance(GameState *gs, int64_t now);
 
 const World *engine_world(int index);
+/* Estudio: ¿está abierto? (solo se abre en el mundo Música; efímero, no se guarda). */
+bool engine_studio_open(const Engine *e);
+void engine_studio_close(Engine *e);
 void engine_toast(Engine *e, const char *text, uint32_t ms, uint32_t duration);
 
 #endif

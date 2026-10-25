@@ -8,6 +8,7 @@
 #include "habits.h"
 #include "overlays.h"
 #include "phrases.h"
+#include "studio.h"
 #include "talk.h"
 #include "timeutil.h"
 
@@ -74,6 +75,10 @@ static WorldCtx make_ctx(Engine *e, int64_t now, uint32_t ms)
     ctx.charging = e->charging;
     ctx.absent = gs->dir.cur == DS_AUSENCIA && gs->dir.arg == gs->current_world;
     ctx.music = &e->music;
+    ctx.studio = e->studio_open && gs->current_world == WORLD_MUSICA;
+    ctx.studio_row = e->studio_row;
+    ctx.studio_left = ctx.studio && ms_pending(ms, e->studio_until_ms)
+                          ? (uint8_t)((e->studio_until_ms - ms) * 255u / LLV_STUDIO_TIMEOUT_MS) : 0;
     ctx.toast = toast_cb;
     ctx.tone = tone_cb;
     ctx.user = e;
@@ -173,6 +178,8 @@ void engine_sleep(Engine *e, int64_t now)
     e->gs.flags |= SF_ASLEEP;
     e->gs.last_seen = now;
     e->diary_until_ms = 0;
+    e->studio_open = false; /* dormir cierra el Estudio (los ajustes se quedan en gs.mus) */
+    e->atap_valid = false;
     /* Las sorpresas duran lo que dura una mirada. */
     e->gs.dir.cur = DS_NONE;
     e->gs.dir.armed = 0;
@@ -200,10 +207,11 @@ static void music_sync(Engine *e, int64_t now)
             music_stop(m, LLV_MUSIC_FADE_MS);
         return;
     }
+    MusicStudio studio = music_studio_unpack(gs->mus.studio);
     if (!music_active(m) || m->stopping) {
-        /* Al entrar suena con el ánimo de ahora (hora, lluvia, cielo, mascota). */
+        /* Al entrar suena con el ánimo de ahora (hora, lluvia, cielo, mascota) y los ajustes del Estudio. */
         gs->mus.mood = music_mood(gs, now);
-        music_start(m, gs->mus.seed, gs->mus.mut, gs->mus.mood, LLV_AUDIO_RATE);
+        music_start_studio(m, gs->mus.seed, gs->mus.mut, gs->mus.mood, LLV_AUDIO_RATE, &studio);
         return;
     }
     if (m->restart) /* una semilla nueva ya está en camino */
@@ -212,6 +220,8 @@ static void music_sync(Engine *e, int64_t now)
         music_reseed(m, gs->mus.seed, gs->mus.mut, gs->mus.mood);
     else if (gs->mus.mut != m->mut)
         music_mutate(m, gs->mus.mut);
+    if (!m->restart && memcmp(&studio, &m->studio, sizeof(studio)) != 0)
+        music_set_studio(m, &studio); /* el usuario tocó el Estudio: escala, tempo, voces... al instante */
     /* Si llueve (o amanece...) mientras escuchas, el estilo cambia al empezar la vuelta siguiente. */
     if (gs->mus.seed == m->seed) {
         music_set_mood(m, music_mood(gs, now));
@@ -541,6 +551,83 @@ static bool code_feed(Engine *e, Gesture g, uint32_t ms)
     return false;
 }
 
+/* ---------- el Estudio de la música (v1.1) ---------- */
+
+/* El Estudio solo existe en el mundo Música y mientras el mundo no esté tapado por una sorpresa. */
+static bool studio_allowed(const GameState *gs)
+{
+    return gs->current_world == WORLD_MUSICA && gs->dir.cur != DS_GLITCH &&
+           !(gs->dir.cur == DS_AUSENCIA && gs->dir.arg == WORLD_MUSICA);
+}
+
+static void studio_open_now(Engine *e, uint32_t ms, FrameOut *out)
+{
+    e->studio_open = true;
+    e->studio_row = 0;
+    e->studio_until_ms = ms + LLV_STUDIO_TIMEOUT_MS;
+    e->toast_until_ms = 0;
+    e->atap_valid = false;
+    tone(out, 784, 35);
+    tone(out, 1047, 55);
+}
+
+static void studio_close_now(Engine *e, FrameOut *out)
+{
+    e->studio_open = false;
+    e->atap_valid = false;
+    if (out) {
+        tone(out, 784, 35);
+        tone(out, 523, 55);
+    }
+}
+
+bool engine_studio_open(const Engine *e) { return e->studio_open; }
+
+void engine_studio_close(Engine *e) { studio_close_now(e, NULL); }
+
+/* Un gesto con el Estudio abierto (los gestos que no son A+B se los queda el panel): B = fila siguiente
+ * (mantener: la anterior), A (toque) = valor siguiente de esa fila, A (mantener) = cerrar o, sobre el dado,
+ * tirarlo (semilla nueva respetando lo FIJO). Devuelve el gesto que sigue su curso (A+B abre el diario). */
+static Gesture studio_gesture(Engine *e, Gesture g, uint32_t ms, FrameOut *out, WorldCtx *ctx)
+{
+    GameState *gs = &e->gs;
+    if (g == GEST_NONE || g == GEST_AB)
+        return g;
+    e->studio_until_ms = ms + LLV_STUDIO_TIMEOUT_MS;
+    switch (g) {
+    case GEST_B_TAP:
+        e->studio_row = (uint8_t)((e->studio_row + 1) % SR_COUNT);
+        tone(out, 740, 25);
+        break;
+    case GEST_B_HOLD:
+        e->studio_row = (uint8_t)((e->studio_row + SR_COUNT - 1) % SR_COUNT);
+        tone(out, 587, 25);
+        break;
+    case GEST_A_TAP:
+        if (studio_row_is_action(e->studio_row)) {
+            engine_toast(e, "Mantén A para el dado", ms, 1200);
+            tone(out, 330, 30);
+        } else {
+            MusicStudio st = music_studio_unpack(gs->mus.studio);
+            studio_cycle(&st, e->studio_row);
+            gs->mus.studio = music_studio_pack(&st);
+            tone(out, (uint16_t)(523 + 40 * studio_row_value(&st, e->studio_row)), 30);
+        }
+        break;
+    case GEST_A_HOLD:
+        if (studio_row_is_action(e->studio_row)) {
+            WORLDS[WORLD_MUSICA]->on_hold(gs, ctx); /* la semilla nueva de siempre: lo FIJO no se mueve */
+            tone(out, 440, 60);
+        } else {
+            studio_close_now(e, out);
+        }
+        break;
+    default:
+        break;
+    }
+    return GEST_NONE;
+}
+
 /* ---------- frame ---------- */
 
 static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOut *out)
@@ -587,6 +674,18 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
             }
         }
 
+        /* El Estudio se cierra solo a los pocos segundos sin pulsar nada, y si el mundo deja de ser Música. */
+        if (e->studio_open) {
+            if (!studio_allowed(gs))
+                studio_close_now(e, NULL);
+            else if (touched)
+                e->studio_until_ms = ms + LLV_STUDIO_TIMEOUT_MS;
+            else if (!ms_pending(ms, e->studio_until_ms))
+                studio_close_now(e, out);
+        }
+        if (g != GEST_NONE && g != GEST_A_TAP)
+            e->atap_valid = false; /* el doble toque pide dos toques seguidos de A y nada más */
+
         if (g != GEST_NONE && ms_pending(ms, e->diary_until_ms)) {
             e->diary_until_ms = 0; /* cualquier gesto cierra el diario */
             g = GEST_NONE;
@@ -610,6 +709,11 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
                 tone(out, 2093, 140);
             }
             g = GEST_NONE;
+        }
+        if (e->studio_open && g != GEST_NONE && g != GEST_AB) { /* el panel se lleva los gestos */
+            g = studio_gesture(e, g, ms, out, &ctx);
+            e->code_n = e->code_prog = 0; /* ...y no cuentan para el código secreto */
+            e->code_snap_valid = false;
         }
         if (g == GEST_B_TAP && gs->dir.armed) { /* rebeldía: "No. Me gusta aquí." */
             int spk = gs->dir.arg ? gs->dir.arg : SPK_ABUELA;
@@ -656,6 +760,20 @@ static void frame_impl(Engine *e, RawInput in, int64_t now, uint32_t ms, FrameOu
             tone(out, 587, 50);
             break;
         case GEST_A_TAP:
+            /* Doble toque de A en Música (y no a mitad del código secreto): abre el Estudio. El primer toque
+             * ya mutó la melodía como siempre; el segundo lo deshace y abre el panel, así que abrirlo no
+             * deja ni una mutación de más. */
+            if (gs->current_world == WORLD_MUSICA && !e->studio_open && e->code_prog < 3 && e->atap_valid &&
+                ms - e->atap_ms <= LLV_DOUBLE_TAP_MS) {
+                gs->mus.mut = e->atap_prev_mut;
+                studio_open_now(e, ms, out);
+                break;
+            }
+            if (gs->current_world == WORLD_MUSICA && w->on_tap) {
+                e->atap_valid = e->code_prog < 3;
+                e->atap_ms = ms;
+                e->atap_prev_mut = gs->mus.mut;
+            }
             if (w->on_tap) {
                 w->on_tap(gs, &ctx);
                 tone(out, 660, 35);

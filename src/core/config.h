@@ -82,6 +82,8 @@
 #define LLV_COMBO_MS 150                       /* A+B "a la vez" */
 #define LLV_SLEEP_AFTER_MS 20000               /* se duerme tras 20 s sin tocarlo 🧪 */
 #define LLV_SLEEP_MUSIC_MS 180000              /* ...salvo en el mundo Música sonando: 3 min, para dejarlo sonando 🧪 */
+#define LLV_DOUBLE_TAP_MS 300                  /* dos toques de A seguidos en Música (entre soltar uno y soltar el otro): abre el Estudio 🧪 */
+#define LLV_STUDIO_TIMEOUT_MS 9000             /* el Estudio se cierra solo tras 9 s sin pulsar nada 🧪 */
 #define LLV_COLLAPSE_MS 700                    /* animación de colapso al despertar */
 
 /* Cielo (horas locales en minutos desde medianoche). */

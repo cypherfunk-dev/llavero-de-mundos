@@ -20,7 +20,7 @@ add_library(llv_core STATIC
   src/core/timeutil.c src/core/rng.c
   src/core/garden.c src/core/garden_data.c src/core/pet.c src/core/art.c
   src/core/phrases.c src/core/phrases_data.c src/core/talk.c src/core/director.c src/core/habits.c
-  src/core/cast.c src/core/overlays.c src/core/music.c
+  src/core/cast.c src/core/overlays.c src/core/music.c src/core/studio.c
   src/core/fish.c src/core/fish_data.c src/core/fish_art.c
   src/core/worlds/reloj.c src/core/worlds/jardin.c src/core/worlds/cobertizo.c
   src/core/worlds/sala.c src/core/worlds/musica.c src/core/worlds/pesca.c)

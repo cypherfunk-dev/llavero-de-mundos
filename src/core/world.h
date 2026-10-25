@@ -23,6 +23,9 @@ typedef struct {
     bool charging;
     bool absent;       /* sorpresa "salí, vuelvo en 5 min": este mundo está vacío */
     const Music *music;/* el sintetizador (solo lectura): el visualizador del mundo Música; puede ser NULL */
+    bool studio;       /* el Estudio de la música está abierto (solo en el mundo Música): el mundo dibuja el panel */
+    uint8_t studio_row;  /* fila seleccionada del panel (StudioRow) */
+    uint8_t studio_left; /* lo que queda para que se cierre solo, 0..255 */
     /* Pitido (spec §5.2: un pitido por letra). Puede ser NULL (tests). */
     void (*tone)(void *user, uint16_t freq, uint16_t ms);
     /* Mensaje breve sobre la escena (lo dibuja el motor). Puede ser NULL (tests). */
